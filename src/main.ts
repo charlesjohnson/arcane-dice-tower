@@ -43,6 +43,25 @@ function ensureAudio(): void {
   }
 }
 
+// --- Wire baffle impact effects and audio via collision events ---
+import * as THREE from 'three';
+
+for (const baffleBody of tower.baffleBodies) {
+  baffleBody.addEventListener('collide', (event: { contact: { ri: { x: number; y: number; z: number } } }) => {
+    const contactPoint = new THREE.Vector3(
+      baffleBody.position.x + event.contact.ri.x,
+      baffleBody.position.y + event.contact.ri.y,
+      baffleBody.position.z + event.contact.ri.z
+    );
+    effects.baffleImpact(contactPoint);
+    if (audioInitialized) audio.playImpact(0.8);
+  });
+}
+
+tower.trayFloorBody.addEventListener('collide', () => {
+  if (audioInitialized) audio.playImpact(0.5);
+});
+
 // --- Wire Roll Button ---
 const rollButton = new RollButton(uiRoot, () => {
   ensureAudio();

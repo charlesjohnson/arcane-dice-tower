@@ -12,6 +12,8 @@ const WALL_THICKNESS = 0.15;
 export interface Tower {
   group: THREE.Group;
   baffles: THREE.Mesh[];
+  baffleBodies: CANNON.Body[];
+  trayFloorBody: CANNON.Body;
   runeGlowMeshes: THREE.Mesh[];
   trayFloorY: number;
   dropPosition: THREE.Vector3;
@@ -23,6 +25,7 @@ export function buildTower(
 ): Tower {
   const group = new THREE.Group();
   const baffles: THREE.Mesh[] = [];
+  const baffleBodies: CANNON.Body[] = [];
   const runeGlowMeshes: THREE.Mesh[] = [];
 
   const ivoryMaterial = new THREE.MeshStandardMaterial({
@@ -116,6 +119,7 @@ export function buildTower(
     baffleBody.position.set(bp.x, bp.y, bp.z);
     baffleBody.quaternion.setFromEuler(0, 0, bp.rotZ);
     physics.addStaticBody(baffleBody);
+    baffleBodies.push(baffleBody);
   }
 
   // --- Tray ---
@@ -170,6 +174,33 @@ export function buildTower(
     physics.addStaticBody(wallBody);
   }
 
+  // --- Sloped floor to funnel dice from tower base into tray ---
+  const slopeLength = TOWER_RADIUS + TRAY_DEPTH * 0.3;
+  const slopeAngle = Math.atan2(trayFloorY, slopeLength); // gentle slope
+  const slopeGeo = new THREE.BoxGeometry(TOWER_RADIUS * 1.8, 0.1, slopeLength);
+  const slopeMesh = new THREE.Mesh(slopeGeo, ivoryMaterial);
+  slopeMesh.position.set(0, trayFloorY / 2, slopeLength / 2 - TOWER_RADIUS * 0.3);
+  slopeMesh.rotation.x = slopeAngle;
+  slopeMesh.receiveShadow = true;
+  group.add(slopeMesh);
+
+  // Physics collider for the slope
+  const slopeBody = new CANNON.Body({
+    mass: 0,
+    shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS * 0.9, 0.05, slopeLength / 2)),
+  });
+  slopeBody.position.set(0, trayFloorY / 2, slopeLength / 2 - TOWER_RADIUS * 0.3);
+  slopeBody.quaternion.setFromEuler(slopeAngle, 0, 0);
+  physics.addStaticBody(slopeBody);
+
+  // Front lip on tray to keep dice from bouncing out
+  const frontLipBody = new CANNON.Body({
+    mass: 0,
+    shape: new CANNON.Box(new CANNON.Vec3(TRAY_WIDTH / 2, 0.15, WALL_THICKNESS / 2)),
+  });
+  frontLipBody.position.set(0, trayFloorY + 0.15, TOWER_RADIUS);
+  physics.addStaticBody(frontLipBody);
+
   // Tower interior wall physics (back + sides)
   const backBody = new CANNON.Body({
     mass: 0,
@@ -192,6 +223,8 @@ export function buildTower(
   return {
     group,
     baffles,
+    baffleBodies,
+    trayFloorBody: floorBody,
     runeGlowMeshes,
     trayFloorY,
     dropPosition: new THREE.Vector3(0, TOWER_HEIGHT + 1, 0),

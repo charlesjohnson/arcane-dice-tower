@@ -12,6 +12,8 @@ export interface DieInstance {
   mesh: THREE.Mesh;
   body: import('cannon-es').Body;
   type: DiceType;
+  /** For D100 pairs: 'tens' or 'units'. Undefined for non-D100 dice. */
+  d100Role?: 'tens' | 'units';
   result: number | null;
 }
 
@@ -57,8 +59,19 @@ export class RollOrchestrator {
 
     const dropPos = this.tower.dropPosition;
 
-    for (let i = 0; i < diceList.length; i++) {
-      const type = diceList[i];
+    // Expand D100 into two D10 bodies (tens + units)
+    const spawnList: { type: DiceType; d100Role?: 'tens' | 'units' }[] = [];
+    for (const type of diceList) {
+      if (type === 'd100') {
+        spawnList.push({ type: 'd100', d100Role: 'tens' });
+        spawnList.push({ type: 'd10', d100Role: 'units' });
+      } else {
+        spawnList.push({ type });
+      }
+    }
+
+    for (let i = 0; i < spawnList.length; i++) {
+      const { type, d100Role } = spawnList[i];
       const geometry = createDiceGeometry(type);
       const material = createDiceMaterial(type);
       const mesh = new THREE.Mesh(geometry, material);
@@ -66,7 +79,7 @@ export class RollOrchestrator {
       const body = createDiceBody(type);
 
       // Stagger dice positions slightly so they don't overlap
-      const offsetX = (i - (diceList.length - 1) / 2) * 0.8;
+      const offsetX = (i - (spawnList.length - 1) / 2) * 0.8;
       const offsetY = i * 0.5;
       body.position.set(
         dropPos.x + offsetX,
@@ -89,6 +102,7 @@ export class RollOrchestrator {
         mesh,
         body,
         type,
+        d100Role,
         result: null,
       });
     }
@@ -116,6 +130,9 @@ export class RollOrchestrator {
   private readResults(): RollResult {
     const results: { type: DiceType; value: number }[] = [];
 
+    // Read raw values for each physical die
+    let pendingTensValue: number | null = null;
+
     for (const die of this.dice) {
       const config = DICE_CONFIGS[die.type];
       const faceNormals = this.extractFaceNormals(die.mesh.geometry, config.faceCount);
@@ -128,7 +145,21 @@ export class RollOrchestrator {
       const faceIndex = findUpwardFaceIndex(faceNormals, quaternion);
       const value = config.faceValues[faceIndex % config.faceValues.length];
       die.result = value;
-      results.push({ type: die.type, value });
+
+      if (die.d100Role === 'tens') {
+        // D100 tens die: hold value, wait for the units die
+        pendingTensValue = value;
+      } else if (die.d100Role === 'units') {
+        // D100 units die: combine with tens value
+        const tens = pendingTensValue ?? 0;
+        const units = value;
+        // 00 + 0 = 100 in D&D convention
+        const combined = tens + units === 0 ? 100 : tens + units;
+        results.push({ type: 'd100', value: combined });
+        pendingTensValue = null;
+      } else {
+        results.push({ type: die.type, value });
+      }
     }
 
     const total = results.reduce((sum, d) => sum + d.value, 0);
