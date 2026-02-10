@@ -14,7 +14,7 @@ This project uses **Claude Superpowers** — a skill-driven development workflow
 4. **Debug systematically.** Use `/systematic-debugging` when hitting bugs or test failures — no guessing, no shotgun fixes.
 5. **Verify before you claim done.** Use `/verification-before-completion` before committing or announcing success. Evidence before assertions.
 6. **Review your work.** Use `/requesting-code-review` when a feature is complete. Use `/receiving-code-review` when processing feedback — with technical rigor, not blind agreement.
-7. **Finish cleanly.** Use `/finishing-a-development-branch` to decide how to integrate completed work (merge, PR, or cleanup).
+7. **Finish cleanly.** Use `/finishing-a-development-branch` to decide how to integrate completed work (merge, PR, or cleanup). Always prefer creating a PR over direct merge or cleanup.
 
 ### Parallel Work
 
