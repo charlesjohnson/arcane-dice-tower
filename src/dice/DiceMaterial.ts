@@ -39,27 +39,14 @@ function createFaceTexture(value: number | string, _dieType: DiceType): THREE.Ca
 export function createDiceMaterial(type: DiceType): THREE.Material | THREE.Material[] {
   const config = DICE_CONFIGS[type];
 
-  if (type === 'd6') {
-    // BoxGeometry uses 6 materials, one per face
-    return config.faceValues.map((val) => {
-      return new THREE.MeshStandardMaterial({
-        map: createFaceTexture(val, type),
-        roughness: 0.2,
-        metalness: 0.1,
-        emissive: new THREE.Color(0x221133),
-        emissiveIntensity: 0.3,
-      });
+  // Create per-face materials with number textures for all dice types
+  return config.faceValues.map((val) => {
+    return new THREE.MeshStandardMaterial({
+      map: createFaceTexture(val, type),
+      roughness: 0.2,
+      metalness: 0.1,
+      emissive: new THREE.Color(0x221133),
+      emissiveIntensity: 0.3,
     });
-  }
-
-  // For polyhedra, use a single material with a composite texture
-  return new THREE.MeshStandardMaterial({
-    color: 0x1a1025,
-    roughness: 0.2,
-    metalness: 0.1,
-    emissive: new THREE.Color(0x221133),
-    emissiveIntensity: 0.3,
-    transparent: true,
-    opacity: 0.9,
   });
 }
