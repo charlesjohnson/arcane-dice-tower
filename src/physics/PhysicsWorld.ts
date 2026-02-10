@@ -39,7 +39,7 @@ export class PhysicsWorld {
   }
 
   step(delta: number): void {
-    this.world.step(1 / 60, delta, 3);
+    this.world.step(1 / 60, delta, 15);
   }
 
   areBodiesSettled(): boolean {

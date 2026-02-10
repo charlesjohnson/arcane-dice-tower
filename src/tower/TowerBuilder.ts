@@ -231,14 +231,20 @@ export function buildTower(
   physics.addStaticBody(frontLipBody);
 
   // Tower interior wall physics (back + sides)
+  // Physics bodies are thicker than visual walls to give the solver enough
+  // margin to resolve collisions when dice are pressed against walls by
+  // baffle contact forces. The extra thickness extends outward (away from
+  // the tower interior) so it doesn't shrink the playable space.
+  const COLLISION_WALL_HALF = 0.25;
+
   const backBody = new CANNON.Body({
     mass: 0,
-    shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS, TOWER_HEIGHT / 2, WALL_THICKNESS / 2)),
+    shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS, TOWER_HEIGHT / 2, COLLISION_WALL_HALF)),
   });
   backBody.position.set(0, TOWER_HEIGHT / 2, -TOWER_RADIUS);
   physics.addStaticBody(backBody);
 
-  const sideHalf = new CANNON.Vec3(WALL_THICKNESS / 2, TOWER_HEIGHT / 2, TOWER_RADIUS);
+  const sideHalf = new CANNON.Vec3(COLLISION_WALL_HALF, TOWER_HEIGHT / 2, TOWER_RADIUS);
   const leftBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(sideHalf) });
   leftBody.position.set(-TOWER_RADIUS, TOWER_HEIGHT / 2, 0);
   physics.addStaticBody(leftBody);
@@ -252,7 +258,7 @@ export function buildTower(
   const frontWallHeight = TOWER_HEIGHT - 2; // leave bottom 2 units open for tray exit
   const frontBody = new CANNON.Body({
     mass: 0,
-    shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS, frontWallHeight / 2, WALL_THICKNESS / 2)),
+    shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS, frontWallHeight / 2, COLLISION_WALL_HALF)),
   });
   frontBody.position.set(0, TOWER_HEIGHT - frontWallHeight / 2, TOWER_RADIUS);
   physics.addStaticBody(frontBody);

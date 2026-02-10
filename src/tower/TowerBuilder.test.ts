@@ -135,6 +135,33 @@ describe('Tower baffle geometry prevents dice from getting stuck', () => {
     }
   });
 
+  it('has side wall collision bodies thick enough to prevent tunneling', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
+
+    // Side walls are at x = ±TOWER_RADIUS, span full tower height
+    const sideWallBodies = bodies.filter((b: CANNON.Body) => {
+      return Math.abs(Math.abs(b.position.x) - TOWER_RADIUS) < 0.01 &&
+        b.position.y > 2;
+    });
+
+    expect(sideWallBodies.length).toBe(2);
+
+    for (const wall of sideWallBodies) {
+      const shape = wall.shapes[0] as CANNON.Box;
+      // The thin dimension (X) must be at least 0.2 half-extent to give the
+      // solver enough margin to resolve collisions when dice are pressed
+      // against walls by baffle contact forces
+      expect(
+        shape.halfExtents.x,
+        `Side wall at x=${wall.position.x}: half-extent ${shape.halfExtents.x} too thin`
+      ).toBeGreaterThanOrEqual(0.2);
+    }
+  });
+
   it('has enough vertical space between consecutive baffles for dice to pass', () => {
     const scene = new THREE.Scene();
     const physics = new PhysicsWorld();
