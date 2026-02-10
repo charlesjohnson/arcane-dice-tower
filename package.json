@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:setup": "node scripts/start-dev.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
