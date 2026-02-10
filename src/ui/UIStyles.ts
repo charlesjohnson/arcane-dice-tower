@@ -152,6 +152,70 @@ export function injectStyles(): void {
       padding-left: 16px;
       border-left: 1px solid rgba(136, 85, 255, 0.3);
     }
+
+    @media (max-width: 600px) {
+      .dice-selector {
+        gap: 6px;
+        padding: 8px 12px;
+        bottom: 70px;
+      }
+
+      .dice-btn {
+        width: 44px;
+        height: 56px;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 10px;
+      }
+
+      .dice-btn canvas {
+        width: 28px;
+        height: 28px;
+      }
+
+      .roll-btn {
+        width: 140px;
+        height: 48px;
+        font-size: 16px;
+        bottom: 12px;
+      }
+
+      .roll-summary {
+        bottom: 130px;
+        font-size: 14px;
+      }
+
+      .results-bar {
+        gap: 10px;
+        padding: 8px 16px;
+        top: 10px;
+      }
+
+      .result-value {
+        font-size: 18px;
+      }
+
+      .result-total {
+        font-size: 22px;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .dice-selector {
+        gap: 4px;
+        padding: 6px 8px;
+      }
+
+      .dice-btn {
+        width: 40px;
+        height: 50px;
+      }
+
+      .dice-btn canvas {
+        width: 24px;
+        height: 24px;
+      }
+    }
   `;
   document.head.appendChild(style);
 }

@@ -56,7 +56,16 @@ export class SceneManager {
 
   private setupResizeHandler(): void {
     window.addEventListener('resize', () => {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
+      const aspect = window.innerWidth / window.innerHeight;
+      this.camera.aspect = aspect;
+
+      // Widen FOV in portrait mode so tower and tray are visible
+      if (aspect < 1) {
+        this.camera.fov = 65;
+      } else {
+        this.camera.fov = 50;
+      }
+
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
