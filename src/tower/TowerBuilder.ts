@@ -247,6 +247,16 @@ export function buildTower(
   rightBody.position.set(TOWER_RADIUS, TOWER_HEIGHT / 2, 0);
   physics.addStaticBody(rightBody);
 
+  // Invisible front wall (upper portion only) prevents dice from flying
+  // out the open front while still letting them exit at the bottom into the tray.
+  const frontWallHeight = TOWER_HEIGHT - 2; // leave bottom 2 units open for tray exit
+  const frontBody = new CANNON.Body({
+    mass: 0,
+    shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS, frontWallHeight / 2, WALL_THICKNESS / 2)),
+  });
+  frontBody.position.set(0, TOWER_HEIGHT - frontWallHeight / 2, TOWER_RADIUS);
+  physics.addStaticBody(frontBody);
+
   // --- Interior point lights at each baffle level ---
   const interiorLights: THREE.PointLight[] = [];
   const interiorLightHeights = [6.5, 5.0, 3.5, 2.0];

@@ -27,6 +27,13 @@ export interface RollResult {
 type StateChangeListener = (state: RollState, result: RollResult | null) => void;
 
 const SETTLE_WAIT_TIME = 1.0; // seconds to wait before checking settlement
+const MAX_SPREAD_X = 0.7; // TOWER_RADIUS (1.5) - die radius (0.6) - random offset (0.15)
+
+/** Compute the clamped horizontal offset for the i-th die out of total. */
+export function computeSpawnOffsetX(index: number, total: number): number {
+  const rawOffsetX = (index - (total - 1) / 2) * 0.8;
+  return Math.max(-MAX_SPREAD_X, Math.min(MAX_SPREAD_X, rawOffsetX));
+}
 
 export class RollOrchestrator {
   private scene: THREE.Scene;
@@ -78,8 +85,9 @@ export class RollOrchestrator {
 
       const body = createDiceBody(type);
 
-      // Stagger dice positions slightly so they don't overlap
-      const offsetX = (i - (spawnList.length - 1) / 2) * 0.8;
+      // Stagger dice vertically so they don't overlap, and clamp the
+      // horizontal spread to stay well inside the tower walls (±1.5).
+      const offsetX = computeSpawnOffsetX(i, spawnList.length);
       const offsetY = i * 0.5;
       body.position.set(
         dropPos.x + offsetX,
