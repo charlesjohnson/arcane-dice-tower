@@ -14,13 +14,13 @@ The design spec says D100 should be "Two D10s (tens + units)." Currently only on
 
 ---
 
-## 2. Missing tower-to-tray transition physics
+## ~~2. Missing tower-to-tray transition physics~~ (FIXED)
 
 **File:** `src/tower/TowerBuilder.ts`
 
-The tray floor sits at `z = TOWER_RADIUS + TRAY_DEPTH / 2` (in front of the tower), but there is no physics collider guiding dice from the tower interior bottom into the tray. Dice can fall through the gap between the tower base and the tray, or exit sideways through the open front.
+~~The tray floor sits at `z = TOWER_RADIUS + TRAY_DEPTH / 2` (in front of the tower), but there is no physics collider guiding dice from the tower interior bottom into the tray. Dice can fall through the gap between the tower base and the tray, or exit sideways through the open front.~~
 
-**Fix:** Add a sloped floor collider at the tower base that funnels dice forward into the tray opening. May also need a front lip or guide walls.
+**Resolution:** Added a sloped ramp (visual mesh + physics body) at the tower base. The ramp sits inside the tower, angled from y=1.0 at the back wall down to y=0.15 at the front opening, funneling dice forward into the tray.
 
 ---
 
