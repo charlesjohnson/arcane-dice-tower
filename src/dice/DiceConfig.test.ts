@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { DICE_CONFIGS, DiceType } from './DiceConfig';
+import { DICE_CONFIGS } from './DiceConfig';
+import type { DiceType } from './DiceConfig';
 
 describe('DiceConfig', () => {
   it('defines all 7 standard dice types', () => {
