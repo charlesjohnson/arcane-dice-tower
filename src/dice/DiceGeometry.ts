@@ -120,8 +120,8 @@ function createD10Geometry(radius: number): THREE.BufferGeometry {
     const next = ((i + 1) % 10) + 2;
 
     if (i % 2 === 0) {
-      indices.push(0, curr, next);
-      indices.push(curr, 1, next);
+      indices.push(0, next, curr);
+      indices.push(next, 1, curr);
     } else {
       indices.push(curr, 0, next);
       indices.push(1, curr, next);
