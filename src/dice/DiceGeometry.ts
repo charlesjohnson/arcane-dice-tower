@@ -8,19 +8,89 @@ export function createDiceGeometry(type: DiceType): THREE.BufferGeometry {
 
   switch (type) {
     case 'd4':
-      return new THREE.TetrahedronGeometry(r);
+      return addFaceGroupsAndUVs(new THREE.TetrahedronGeometry(r), config.faceCount);
     case 'd6':
+      // BoxGeometry already has built-in face groups for 6 materials
       return new THREE.BoxGeometry(r * 1.2, r * 1.2, r * 1.2);
     case 'd8':
-      return new THREE.OctahedronGeometry(r);
+      return addFaceGroupsAndUVs(new THREE.OctahedronGeometry(r), config.faceCount);
     case 'd10':
     case 'd100':
-      return createD10Geometry(r);
+      // D10 is indexed; convert to non-indexed so we can assign per-face UVs
+      return addFaceGroupsAndUVs(createD10Geometry(r).toNonIndexed(), config.faceCount);
     case 'd12':
-      return new THREE.DodecahedronGeometry(r);
+      return addFaceGroupsAndUVs(new THREE.DodecahedronGeometry(r), config.faceCount);
     case 'd20':
-      return new THREE.IcosahedronGeometry(r);
+      return addFaceGroupsAndUVs(new THREE.IcosahedronGeometry(r), config.faceCount);
   }
+}
+
+function addFaceGroupsAndUVs(
+  geometry: THREE.BufferGeometry,
+  faceCount: number
+): THREE.BufferGeometry {
+  const posAttr = geometry.getAttribute('position');
+  const vertexCount = posAttr.count;
+  const verticesPerFace = vertexCount / faceCount;
+  const uvs = new Float32Array(vertexCount * 2);
+
+  for (let face = 0; face < faceCount; face++) {
+    const start = face * verticesPerFace;
+
+    // Add material group for this face
+    geometry.addGroup(start, verticesPerFace, face);
+
+    // Collect face vertices and compute center
+    const faceVertices: THREE.Vector3[] = [];
+    const center = new THREE.Vector3();
+    for (let v = 0; v < verticesPerFace; v++) {
+      const vertex = new THREE.Vector3().fromBufferAttribute(posAttr, start + v);
+      faceVertices.push(vertex);
+      center.add(vertex);
+    }
+    center.divideScalar(verticesPerFace);
+
+    // Compute face normal from first triangle
+    const edge1 = new THREE.Vector3().subVectors(faceVertices[1], faceVertices[0]);
+    const edge2 = new THREE.Vector3().subVectors(faceVertices[2], faceVertices[0]);
+    const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+    // Create tangent/bitangent basis for planar UV projection
+    const tangent = new THREE.Vector3();
+    if (Math.abs(normal.y) < 0.99) {
+      tangent.crossVectors(new THREE.Vector3(0, 1, 0), normal).normalize();
+    } else {
+      tangent.crossVectors(new THREE.Vector3(1, 0, 0), normal).normalize();
+    }
+    const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+
+    // Project vertices onto face plane
+    const projected: [number, number][] = [];
+    let minU = Infinity, maxU = -Infinity;
+    let minV = Infinity, maxV = -Infinity;
+    for (const vertex of faceVertices) {
+      const diff = new THREE.Vector3().subVectors(vertex, center);
+      const u = diff.dot(tangent);
+      const v = diff.dot(bitangent);
+      projected.push([u, v]);
+      minU = Math.min(minU, u); maxU = Math.max(maxU, u);
+      minV = Math.min(minV, v); maxV = Math.max(maxV, v);
+    }
+
+    // Normalize UVs: center the face in texture space with padding
+    const range = Math.max(maxU - minU, maxV - minV) || 1;
+    const centerU = (minU + maxU) / 2;
+    const centerV = (minV + maxV) / 2;
+
+    for (let v = 0; v < verticesPerFace; v++) {
+      const [pu, pv] = projected[v];
+      uvs[(start + v) * 2] = 0.5 + ((pu - centerU) / range) * 0.8;
+      uvs[(start + v) * 2 + 1] = 0.5 + ((pv - centerV) / range) * 0.8;
+    }
+  }
+
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  return geometry;
 }
 
 function createD10Geometry(radius: number): THREE.BufferGeometry {
