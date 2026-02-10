@@ -90,12 +90,12 @@ export function buildTower(
   }
 
   // --- Internal baffles (angled shelves) ---
-  const baffleGeo = new THREE.BoxGeometry(TOWER_RADIUS * 1.6, 0.1, TOWER_RADIUS * 1.2);
+  const baffleGeo = new THREE.BoxGeometry(TOWER_RADIUS * 1.2, 0.1, TOWER_RADIUS * 1.2);
   const bafflePositions = [
-    { x: 0.4, y: 6.5, z: -0.2, rotZ: -0.3 },
-    { x: -0.4, y: 5.0, z: -0.2, rotZ: 0.3 },
-    { x: 0.3, y: 3.5, z: -0.2, rotZ: -0.25 },
-    { x: -0.3, y: 2.0, z: -0.2, rotZ: 0.25 },
+    { x: 0.3, y: 7.0, z: -0.2, rotZ: -0.4 },
+    { x: -0.3, y: 5.0, z: -0.2, rotZ: 0.4 },
+    { x: 0.25, y: 3.0, z: -0.2, rotZ: -0.38 },
+    { x: -0.25, y: 1.2, z: -0.2, rotZ: 0.38 },
   ];
 
   for (const bp of bafflePositions) {
@@ -109,7 +109,7 @@ export function buildTower(
 
     // Physics collider for baffle
     const halfExtents = new CANNON.Vec3(
-      TOWER_RADIUS * 0.8,
+      TOWER_RADIUS * 0.6,
       0.05,
       TOWER_RADIUS * 0.6
     );
@@ -259,7 +259,7 @@ export function buildTower(
 
   // --- Interior point lights at each baffle level ---
   const interiorLights: THREE.PointLight[] = [];
-  const interiorLightHeights = [6.5, 5.0, 3.5, 2.0];
+  const interiorLightHeights = [7.0, 5.0, 3.0, 1.2];
   for (const h of interiorLightHeights) {
     const light = new THREE.PointLight(0x9966ff, 0.8, 4, 1.5);
     light.position.set(0, h, 0.5);

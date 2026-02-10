@@ -5,6 +5,7 @@ import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { buildTower } from './TowerBuilder';
 
 const TOWER_RADIUS = 1.5;
+const MAX_DIE_DIAMETER = 1.2; // largest die radius (0.6) × 2
 
 describe('Tower physics containment', () => {
   it('has a front wall physics body that blocks dice from exiting the open front', () => {
@@ -12,13 +13,105 @@ describe('Tower physics containment', () => {
     const physics = new PhysicsWorld();
     buildTower(scene, physics);
 
-    // Inspect all bodies in the physics world for one at the front face (Z ≈ TOWER_RADIUS)
-    // positioned in the upper portion of the tower (Y > 2).
     const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
     const frontWallBodies = bodies.filter((b: CANNON.Body) => {
       return Math.abs(b.position.z - TOWER_RADIUS) < 0.2 && b.position.y > 2;
     });
 
     expect(frontWallBodies.length).toBeGreaterThan(0);
+  });
+});
+
+describe('Tower baffle geometry prevents dice from getting stuck', () => {
+  function getBaffleBodies(physics: PhysicsWorld): CANNON.Body[] {
+    const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
+    // Baffles are static bodies positioned between Y=2 and Y=7 with rotated quaternions
+    return bodies.filter((b: CANNON.Body) => {
+      if (b.mass !== 0) return false;
+      if (b.position.y < 1.0 || b.position.y > 7.5) return false;
+      // Baffles have Z-axis rotation (non-identity quaternion around Z)
+      const q = b.quaternion;
+      const isRotated = Math.abs(q.z) > 0.01;
+      return isRotated;
+    });
+  }
+
+  it('leaves a gap wider than the largest die on at least one side of each baffle', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    const baffleBodies = getBaffleBodies(physics);
+    expect(baffleBodies.length).toBe(4);
+
+    for (const baffle of baffleBodies) {
+      const shape = baffle.shapes[0] as CANNON.Box;
+      const halfWidth = shape.halfExtents.x;
+
+      // The baffle's effective X extent at its position
+      const baffleLeftEdge = baffle.position.x - halfWidth;
+      const baffleRightEdge = baffle.position.x + halfWidth;
+
+      // Gap between baffle edges and tower walls
+      const leftGap = baffleLeftEdge - (-TOWER_RADIUS);
+      const rightGap = TOWER_RADIUS - baffleRightEdge;
+
+      // At least one side must have a gap wider than the largest die radius
+      // so dice can fall past the baffle
+      const maxGap = Math.max(leftGap, rightGap);
+      expect(
+        maxGap,
+        `Baffle at y=${baffle.position.y}: max gap ${maxGap.toFixed(2)} must exceed die radius 0.6`
+      ).toBeGreaterThan(0.6);
+    }
+  });
+
+  it('has baffle angles steep enough to slide dice off (at least 20 degrees)', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    const baffleBodies = getBaffleBodies(physics);
+    expect(baffleBodies.length).toBe(4);
+
+    const minAngleDegrees = 20;
+    const minAngleRad = (minAngleDegrees * Math.PI) / 180;
+
+    for (const baffle of baffleBodies) {
+      // Extract Z rotation angle from quaternion
+      const q = baffle.quaternion;
+      const sinZ = 2 * (q.w * q.z + q.x * q.y);
+      const cosZ = 1 - 2 * (q.y * q.y + q.z * q.z);
+      const angleZ = Math.atan2(sinZ, cosZ);
+
+      expect(
+        Math.abs(angleZ),
+        `Baffle at y=${baffle.position.y}: angle ${(Math.abs(angleZ) * 180 / Math.PI).toFixed(1)}° must be ≥ ${minAngleDegrees}°`
+      ).toBeGreaterThanOrEqual(minAngleRad);
+    }
+  });
+
+  it('has enough vertical space between consecutive baffles for dice to pass', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    const baffleBodies = getBaffleBodies(physics);
+    expect(baffleBodies.length).toBe(4);
+
+    // Sort by Y position descending (top to bottom)
+    const sorted = [...baffleBodies].sort((a, b) => b.position.y - a.position.y);
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const upper = sorted[i];
+      const lower = sorted[i + 1];
+      const verticalGap = upper.position.y - lower.position.y;
+
+      // Gap must be at least 1.5× the largest die diameter to prevent trapping
+      expect(
+        verticalGap,
+        `Gap between baffles at y=${upper.position.y} and y=${lower.position.y}: ${verticalGap.toFixed(2)} must be ≥ ${MAX_DIE_DIAMETER * 1.5}`
+      ).toBeGreaterThanOrEqual(MAX_DIE_DIAMETER * 1.5);
+    }
   });
 });
