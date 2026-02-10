@@ -15,6 +15,7 @@ export interface Tower {
   baffleBodies: CANNON.Body[];
   trayFloorBody: CANNON.Body;
   runeGlowMeshes: THREE.Mesh[];
+  interiorLights: THREE.PointLight[];
   trayFloorY: number;
   dropPosition: THREE.Vector3;
 }
@@ -246,6 +247,16 @@ export function buildTower(
   rightBody.position.set(TOWER_RADIUS, TOWER_HEIGHT / 2, 0);
   physics.addStaticBody(rightBody);
 
+  // --- Interior point lights at each baffle level ---
+  const interiorLights: THREE.PointLight[] = [];
+  const interiorLightHeights = [6.5, 5.0, 3.5, 2.0];
+  for (const h of interiorLightHeights) {
+    const light = new THREE.PointLight(0x9966ff, 0.8, 4, 1.5);
+    light.position.set(0, h, 0.5);
+    group.add(light);
+    interiorLights.push(light);
+  }
+
   scene.add(group);
 
   return {
@@ -254,6 +265,7 @@ export function buildTower(
     baffleBodies,
     trayFloorBody: floorBody,
     runeGlowMeshes,
+    interiorLights,
     trayFloorY,
     dropPosition: new THREE.Vector3(0, TOWER_HEIGHT + 1, 0),
   };
