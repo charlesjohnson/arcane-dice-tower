@@ -118,6 +118,34 @@ export function buildTower(
     physics.addStaticBody(baffleBody);
   }
 
+  // --- Tower base ramp (guides dice from baffles into the tray) ---
+  const rampDepth = TOWER_RADIUS * 2;
+  const rampWidth = TOWER_RADIUS * 2;
+  const rampThickness = 0.1;
+  const rampBackY = 1.0;   // height at back wall
+  const rampFrontY = 0.15; // height at front opening, near tray floor
+  const rampCenterY = (rampBackY + rampFrontY) / 2;
+  const rampAngleX = Math.atan2(rampBackY - rampFrontY, rampDepth);
+
+  const rampMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(rampWidth, rampThickness, rampDepth),
+    ivoryMaterial
+  );
+  rampMesh.position.set(0, rampCenterY, 0);
+  rampMesh.rotation.x = rampAngleX;
+  rampMesh.receiveShadow = true;
+  group.add(rampMesh);
+
+  const rampBody = new CANNON.Body({
+    mass: 0,
+    shape: new CANNON.Box(
+      new CANNON.Vec3(rampWidth / 2, rampThickness / 2, rampDepth / 2)
+    ),
+  });
+  rampBody.position.set(0, rampCenterY, 0);
+  rampBody.quaternion.setFromEuler(rampAngleX, 0, 0);
+  physics.addStaticBody(rampBody);
+
   // --- Tray ---
   const trayFloorY = 0.1;
 
