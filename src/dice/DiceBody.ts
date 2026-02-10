@@ -40,10 +40,11 @@ export function applyRandomRollForce(body: CANNON.Body): void {
   const angZ = (Math.random() - 0.5) * 20;
   body.angularVelocity.set(angX, angY, angZ);
 
-  // Small random offset, biased toward the back of the tower so dice
-  // don't miss the baffles and fall out the open front.
+  // Small random position jitter so stacked dice don't overlap.
+  // Centered on both axes — the invisible front wall keeps dice
+  // from escaping forward, so no backward bias is needed.
   const offsetX = (Math.random() - 0.5) * 0.3;
-  const offsetZ = (Math.random() - 0.5) * 0.3 - 0.15;
+  const offsetZ = (Math.random() - 0.5) * 0.3;
   body.position.x += offsetX;
   body.position.z += offsetZ;
 }
