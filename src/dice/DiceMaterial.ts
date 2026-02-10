@@ -45,8 +45,8 @@ export function createDiceMaterial(type: DiceType): THREE.Material | THREE.Mater
       map: createFaceTexture(val, type),
       roughness: 0.2,
       metalness: 0.1,
-      emissive: new THREE.Color(0x221133),
-      emissiveIntensity: 0.3,
+      emissive: new THREE.Color(0x442266),
+      emissiveIntensity: 0.6,
     });
   });
 }

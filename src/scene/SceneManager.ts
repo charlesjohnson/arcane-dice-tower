@@ -29,14 +29,14 @@ export class SceneManager {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.toneMappingExposure = 1.4;
 
     this.setupLighting();
     this.setupResizeHandler();
   }
 
   private setupLighting(): void {
-    const ambient = new THREE.AmbientLight(0x2a1a3a, 0.4);
+    const ambient = new THREE.AmbientLight(0x3d2a50, 0.6);
     this.scene.add(ambient);
 
     const keyLight = new THREE.DirectionalLight(0xfff0dd, 1.0);
@@ -52,6 +52,11 @@ export class SceneManager {
     const rimLight = new THREE.PointLight(0xaa88ff, 0.5, 20);
     rimLight.position.set(0, 8, -5);
     this.scene.add(rimLight);
+
+    // Front light to illuminate the open face of the tower
+    const frontLight = new THREE.DirectionalLight(0xddc8ff, 0.5);
+    frontLight.position.set(0, 6, 8);
+    this.scene.add(frontLight);
   }
 
   private setupResizeHandler(): void {
