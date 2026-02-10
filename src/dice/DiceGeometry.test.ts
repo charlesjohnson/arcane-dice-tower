@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import * as THREE from 'three';
 import { createDiceGeometry } from './DiceGeometry';
 
 describe('createDiceGeometry', () => {
@@ -39,4 +40,26 @@ describe('createDiceGeometry', () => {
     const positions10 = d10Geo.getAttribute('position');
     expect(positions100.count).toBe(positions10.count);
   });
+
+  it.each(['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as const)(
+    '%s has all triangle normals pointing outward',
+    (type) => {
+      let geo = createDiceGeometry(type);
+      if (geo.getIndex()) geo = geo.toNonIndexed();
+      const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+      const triCount = pos.count / 3;
+
+      for (let t = 0; t < triCount; t++) {
+        const v0 = new THREE.Vector3().fromBufferAttribute(pos, t * 3);
+        const v1 = new THREE.Vector3().fromBufferAttribute(pos, t * 3 + 1);
+        const v2 = new THREE.Vector3().fromBufferAttribute(pos, t * 3 + 2);
+        const e1 = new THREE.Vector3().subVectors(v1, v0);
+        const e2 = new THREE.Vector3().subVectors(v2, v0);
+        const normal = new THREE.Vector3().crossVectors(e1, e2);
+        const center = new THREE.Vector3().add(v0).add(v1).add(v2).divideScalar(3);
+
+        expect(normal.dot(center)).toBeGreaterThan(0);
+      }
+    }
+  );
 });
