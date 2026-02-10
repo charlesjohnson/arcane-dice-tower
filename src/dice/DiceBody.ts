@@ -40,8 +40,10 @@ export function applyRandomRollForce(body: CANNON.Body): void {
   const angZ = (Math.random() - 0.5) * 20;
   body.angularVelocity.set(angX, angY, angZ);
 
-  const offsetX = (Math.random() - 0.5) * 0.5;
-  const offsetZ = (Math.random() - 0.5) * 0.5;
+  // Small random offset, biased toward the back of the tower so dice
+  // don't miss the baffles and fall out the open front.
+  const offsetX = (Math.random() - 0.5) * 0.3;
+  const offsetZ = (Math.random() - 0.5) * 0.3 - 0.15;
   body.position.x += offsetX;
   body.position.z += offsetZ;
 }
