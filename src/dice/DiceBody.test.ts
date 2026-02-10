@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import * as CANNON from 'cannon-es';
 import { createDiceBody, applyRandomRollForce } from './DiceBody';
-
-const TOWER_RADIUS = 1.5;
 
 describe('applyRandomRollForce', () => {
   it('keeps position offset within tower walls over many random samples', () => {
@@ -24,11 +21,11 @@ describe('applyRandomRollForce', () => {
     }
   });
 
-  it('biases Z offset toward back of tower (away from open front)', () => {
-    // Over many samples the average Z offset should be negative (toward back wall),
-    // not centered at zero, so dice fall toward the baffles rather than the open front.
+  it('centers Z offset so dice spawn inside the tower, not biased to the back', () => {
+    // The Z offset should be symmetric around zero, just like the X offset,
+    // so dice don't get pushed toward (and behind) the back wall.
     let totalZ = 0;
-    const samples = 1000;
+    const samples = 2000;
 
     for (let i = 0; i < samples; i++) {
       const body = createDiceBody('d6');
@@ -38,6 +35,7 @@ describe('applyRandomRollForce', () => {
     }
 
     const averageZ = totalZ / samples;
-    expect(averageZ).toBeLessThan(0);
+    // Average should be close to zero (no bias), not strongly negative.
+    expect(Math.abs(averageZ)).toBeLessThan(0.05);
   });
 });
