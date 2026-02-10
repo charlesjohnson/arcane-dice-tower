@@ -91,6 +91,50 @@ describe('Tower baffle geometry prevents dice from getting stuck', () => {
     }
   });
 
+  it('slopes each baffle down toward its open gap, not toward the wall', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    const baffleBodies = getBaffleBodies(physics);
+    expect(baffleBodies.length).toBe(4);
+
+    for (const baffle of baffleBodies) {
+      const shape = baffle.shapes[0] as CANNON.Box;
+      const halfWidth = shape.halfExtents.x;
+
+      const leftGap = (baffle.position.x - halfWidth) - (-TOWER_RADIUS);
+      const rightGap = TOWER_RADIUS - (baffle.position.x + halfWidth);
+
+      // Determine which side has the larger gap (where dice should fall through)
+      const gapIsOnLeft = leftGap > rightGap;
+
+      // Extract Z rotation angle from quaternion
+      const q = baffle.quaternion;
+      const sinZ = 2 * (q.w * q.z + q.x * q.y);
+      const cosZ = 1 - 2 * (q.y * q.y + q.z * q.z);
+      const angleZ = Math.atan2(sinZ, cosZ);
+
+      // Positive rotZ → left side drops (slopes left)
+      // Negative rotZ → right side drops (slopes right)
+      // Baffle must slope DOWN toward the gap side
+      const slopesLeft = angleZ > 0;
+      const slopesRight = angleZ < 0;
+
+      if (gapIsOnLeft) {
+        expect(
+          slopesLeft,
+          `Baffle at y=${baffle.position.y}: gap is on left but baffle slopes right (rotZ=${angleZ.toFixed(2)})`
+        ).toBe(true);
+      } else {
+        expect(
+          slopesRight,
+          `Baffle at y=${baffle.position.y}: gap is on right but baffle slopes left (rotZ=${angleZ.toFixed(2)})`
+        ).toBe(true);
+      }
+    }
+  });
+
   it('has enough vertical space between consecutive baffles for dice to pass', () => {
     const scene = new THREE.Scene();
     const physics = new PhysicsWorld();

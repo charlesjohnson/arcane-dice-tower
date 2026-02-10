@@ -92,10 +92,10 @@ export function buildTower(
   // --- Internal baffles (angled shelves) ---
   const baffleGeo = new THREE.BoxGeometry(TOWER_RADIUS * 1.2, 0.1, TOWER_RADIUS * 1.2);
   const bafflePositions = [
-    { x: 0.3, y: 7.0, z: -0.2, rotZ: -0.4 },
-    { x: -0.3, y: 5.0, z: -0.2, rotZ: 0.4 },
-    { x: 0.25, y: 3.0, z: -0.2, rotZ: -0.38 },
-    { x: -0.25, y: 1.2, z: -0.2, rotZ: 0.38 },
+    { x: 0.3, y: 7.0, z: -0.2, rotZ: 0.4 },
+    { x: -0.3, y: 5.0, z: -0.2, rotZ: -0.4 },
+    { x: 0.25, y: 3.0, z: -0.2, rotZ: 0.38 },
+    { x: -0.25, y: 1.2, z: -0.2, rotZ: -0.38 },
   ];
 
   for (const bp of bafflePositions) {
