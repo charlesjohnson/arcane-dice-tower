@@ -1,0 +1,22 @@
+{
+  "name": "arcane-dice-tower",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/three": "^0.182.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "cannon-es": "^0.20.0",
+    "three": "^0.182.0"
+  }
+}
