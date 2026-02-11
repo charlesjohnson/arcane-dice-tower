@@ -21,9 +21,9 @@ function createFaceTexture(value: number | string, dieType: DiceType): THREE.Can
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Outer glow
+  // Outer glow (scale blur with font size to avoid clipping on small faces)
   ctx.shadowColor = '#8855ff';
-  ctx.shadowBlur = 20;
+  ctx.shadowBlur = CANVAS_SIZE * fontScale * 0.2;
   ctx.fillStyle = '#bb99ff';
   ctx.fillText(text, CANVAS_SIZE / 2, CANVAS_SIZE / 2);
 
