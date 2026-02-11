@@ -12,6 +12,45 @@ const COLLISION_WALL_HALF = 0.5;
 const MAX_DIE_DIAMETER = 1.2; // largest die radius (0.6) × 2
 const MIN_DIE_RADIUS = 0.5; // smallest die (d4)
 
+describe('Tower interior lighting', () => {
+  it('has one light under each baffle plus one above the top', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    const tower = buildTower(scene, physics);
+
+    const baffleHeights = [7.0, 5.0, 3.0, 1.2];
+
+    // One light per baffle (underneath) + one above the top
+    expect(tower.interiorLights.length).toBe(baffleHeights.length + 1);
+
+    // Sort lights by Y descending to match baffle order
+    const sorted = [...tower.interiorLights].sort(
+      (a, b) => b.position.y - a.position.y
+    );
+
+    // First light should be above the top baffle
+    expect(
+      sorted[0].position.y,
+      `Top light at y=${sorted[0].position.y} must be above top baffle at y=${baffleHeights[0]}`
+    ).toBeGreaterThan(baffleHeights[0]);
+
+    // Remaining lights should each be just below their corresponding baffle
+    for (let i = 0; i < baffleHeights.length; i++) {
+      const light = sorted[i + 1];
+      const baffleY = baffleHeights[i];
+      const gap = baffleY - light.position.y;
+      expect(
+        gap,
+        `Light at y=${light.position.y} should be below baffle at y=${baffleY} (gap=${gap.toFixed(2)})`
+      ).toBeGreaterThan(0);
+      expect(
+        gap,
+        `Light at y=${light.position.y} is too far below baffle at y=${baffleY} (gap=${gap.toFixed(2)})`
+      ).toBeLessThan(0.5);
+    }
+  });
+});
+
 describe('Tower physics containment', () => {
   it('has a front wall physics body that blocks dice from exiting the open front', () => {
     const scene = new THREE.Scene();

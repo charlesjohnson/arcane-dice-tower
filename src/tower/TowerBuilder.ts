@@ -293,12 +293,21 @@ export function buildTower(
   frontBody.position.set(0, TOWER_HEIGHT - frontWallHeight / 2, TOWER_RADIUS);
   physics.addStaticBody(frontBody);
 
-  // --- Interior point lights at each baffle level ---
+  // --- Interior lights: one under each baffle + one above the top ---
+  // Each light sits just below its baffle, illuminating the gap beneath it.
+  // The baffle above acts as a shade, containing the light to its section
+  // and preventing harsh cross-shadow patterns on the walls.
   const interiorLights: THREE.PointLight[] = [];
-  const interiorLightHeights = [7.0, 5.0, 3.0, 1.2];
-  for (const h of interiorLightHeights) {
-    const light = new THREE.PointLight(0x9966ff, 0.8, 4, 1.5);
-    light.position.set(0, h, 0.5);
+  const interiorLightPositions = [
+    { x: 0, y: 7.5, z: 0.5 },  // above top baffle (y=7.0)
+    { x: 0, y: 6.7, z: 0.5 },  // under baffle 1 (y=7.0)
+    { x: 0, y: 4.7, z: 0.5 },  // under baffle 2 (y=5.0)
+    { x: 0, y: 2.7, z: 0.5 },  // under baffle 3 (y=3.0)
+    { x: 0, y: 0.9, z: 0.5 },  // under baffle 4 (y=1.2)
+  ];
+  for (const pos of interiorLightPositions) {
+    const light = new THREE.PointLight(0x9966ff, 0.4, 5, 2);
+    light.position.set(pos.x, pos.y, pos.z);
     group.add(light);
     interiorLights.push(light);
   }
