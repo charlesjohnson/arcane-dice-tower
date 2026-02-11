@@ -2,6 +2,12 @@ import * as CANNON from 'cannon-es';
 import type { DiceType } from './DiceConfig';
 import { DICE_CONFIGS } from './DiceConfig';
 
+/** Shared material for all dice bodies, used to register ContactMaterials. */
+export const DICE_MATERIAL = new CANNON.Material({
+  friction: 0.4,
+  restitution: 0.3,
+});
+
 export function createDiceBody(type: DiceType): CANNON.Body {
   const config = DICE_CONFIGS[type];
   const actualType = type === 'd100' ? 'd10' : type;
@@ -9,12 +15,9 @@ export function createDiceBody(type: DiceType): CANNON.Body {
   const body = new CANNON.Body({
     mass: config.mass,
     shape: createCollisionShape(actualType, config.radius),
-    material: new CANNON.Material({
-      friction: 0.4,
-      restitution: 0.3,
-    }),
-    linearDamping: 0.1,
-    angularDamping: 0.1,
+    material: DICE_MATERIAL,
+    linearDamping: 0.5,
+    angularDamping: 0.5,
   });
 
   body.allowSleep = true;

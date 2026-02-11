@@ -2,12 +2,14 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
+import { DICE_MATERIAL } from '../dice/DiceBody';
 
 const TOWER_HEIGHT = 8;
-const TOWER_RADIUS = 1.5;
-const TRAY_WIDTH = 3;
+const TOWER_RADIUS = 2.0;
+const TRAY_WIDTH = 4;
 const TRAY_DEPTH = 2.5;
 const WALL_THICKNESS = 0.15;
+const COLLISION_WALL_HALF = 0.5;
 
 export interface Tower {
   group: THREE.Group;
@@ -90,13 +92,35 @@ export function buildTower(
   }
 
   // --- Internal baffles (angled shelves) ---
-  const baffleGeo = new THREE.BoxGeometry(TOWER_RADIUS * 1.2, 0.1, TOWER_RADIUS * 1.2);
+  // Baffles span nearly the full tower depth: flush with the back wall and
+  // leaving only a ~0.2 unit gap to the front wall (too narrow for any die
+  // to enter). The front wall uses a low-friction ContactMaterial so dice
+  // touching it while on a baffle still slide off the slope.
+  const baffleHalfZ = 1.4; // flush with back wall, front gap < die radius
+  const baffleCenterZ = -(TOWER_RADIUS - COLLISION_WALL_HALF) + baffleHalfZ; // -0.65
+  const baffleGeo = new THREE.BoxGeometry(TOWER_RADIUS * 0.8, 0.1, baffleHalfZ * 2);
   const bafflePositions = [
-    { x: 0.3, y: 7.0, z: -0.2, rotZ: 0.4 },
-    { x: -0.3, y: 5.0, z: -0.2, rotZ: -0.4 },
-    { x: 0.25, y: 3.0, z: -0.2, rotZ: 0.38 },
-    { x: -0.25, y: 1.2, z: -0.2, rotZ: -0.38 },
+    { x: 0.8, y: 7.0, z: baffleCenterZ, rotZ: 0.55 },
+    { x: -0.8, y: 5.0, z: baffleCenterZ, rotZ: -0.55 },
+    { x: 0.85, y: 3.0, z: baffleCenterZ, rotZ: 0.55 },
+    { x: -0.75, y: 1.2, z: baffleCenterZ, rotZ: -0.50 },
   ];
+
+  // Frictionless baffles: cannon-es's box-box friction solver applies
+  // far more friction than specified for any non-zero coefficient, so
+  // D6 box shapes stall on angled surfaces. Friction=0 disables the
+  // friction solver entirely. Normal forces from the angled surface
+  // still redirect dice in the zig-zag pattern; friction isn't needed.
+  const baffleSurfaceMaterial = new CANNON.Material({
+    friction: 0,
+    restitution: 0.3,
+  });
+
+  // Register explicit ContactMaterial so cannon-es uses friction=0
+  // instead of falling back to defaultContactMaterial (0.3).
+  physics.world.addContactMaterial(new CANNON.ContactMaterial(
+    DICE_MATERIAL, baffleSurfaceMaterial, { friction: 0, restitution: 0.3 }
+  ));
 
   for (const bp of bafflePositions) {
     const baffle = new THREE.Mesh(baffleGeo, ivoryMaterial.clone());
@@ -109,13 +133,14 @@ export function buildTower(
 
     // Physics collider for baffle
     const halfExtents = new CANNON.Vec3(
-      TOWER_RADIUS * 0.6,
+      TOWER_RADIUS * 0.4,
       0.05,
-      TOWER_RADIUS * 0.6
+      baffleHalfZ
     );
     const baffleBody = new CANNON.Body({
       mass: 0,
       shape: new CANNON.Box(halfExtents),
+      material: baffleSurfaceMaterial,
     });
     baffleBody.position.set(bp.x, bp.y, bp.z);
     baffleBody.quaternion.setFromEuler(0, 0, bp.rotZ);
@@ -124,6 +149,19 @@ export function buildTower(
   }
 
   // --- Tower base ramp (guides dice from baffles into the tray) ---
+  // Frictionless surface: cannon-es's box-box friction solver applies far
+  // more friction than specified for low coefficients (box contacts create
+  // many constraint points). Only friction=0 reliably disables friction
+  // forces and lets D6 box shapes slide on the shallow ~12° ramp.
+  const rampSurfaceMaterial = new CANNON.Material({
+    friction: 0,
+    restitution: 0.3,
+  });
+
+  physics.world.addContactMaterial(new CANNON.ContactMaterial(
+    DICE_MATERIAL, rampSurfaceMaterial, { friction: 0, restitution: 0.3 }
+  ));
+
   const rampDepth = TOWER_RADIUS * 2;
   const rampWidth = TOWER_RADIUS * 2;
   const rampThickness = 0.1;
@@ -146,6 +184,7 @@ export function buildTower(
     shape: new CANNON.Box(
       new CANNON.Vec3(rampWidth / 2, rampThickness / 2, rampDepth / 2)
     ),
+    material: rampSurfaceMaterial,
   });
   rampBody.position.set(0, rampCenterY, 0);
   rampBody.quaternion.setFromEuler(rampAngleX, 0, 0);
@@ -217,26 +256,22 @@ export function buildTower(
   const slopeBody = new CANNON.Body({
     mass: 0,
     shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS * 0.9, 0.05, slopeLength / 2)),
+    material: rampSurfaceMaterial,
   });
   slopeBody.position.set(0, trayFloorY / 2, slopeLength / 2 - TOWER_RADIUS * 0.3);
   slopeBody.quaternion.setFromEuler(slopeAngle, 0, 0);
   physics.addStaticBody(slopeBody);
 
-  // Front lip on tray to keep dice from bouncing out
-  const frontLipBody = new CANNON.Body({
-    mass: 0,
-    shape: new CANNON.Box(new CANNON.Vec3(TRAY_WIDTH / 2, 0.15, WALL_THICKNESS / 2)),
-  });
-  frontLipBody.position.set(0, trayFloorY + 0.15, TOWER_RADIUS);
-  physics.addStaticBody(frontLipBody);
+  // No front lip — with linearDamping 0.5, dice enter the tray at low
+  // speed and the three tray walls (left, right, back) are sufficient to
+  // contain them. A lip here blocks dice exiting the ramp because the
+  // cannon-es box-box solver can't slide a D6 over a raised edge.
 
   // Tower interior wall physics (back + sides)
   // Physics bodies are thicker than visual walls to give the solver enough
   // margin to resolve collisions when dice are pressed against walls by
   // baffle contact forces. The extra thickness extends outward (away from
   // the tower interior) so it doesn't shrink the playable space.
-  const COLLISION_WALL_HALF = 0.25;
-
   const backBody = new CANNON.Body({
     mass: 0,
     shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS, TOWER_HEIGHT / 2, COLLISION_WALL_HALF)),
@@ -253,12 +288,21 @@ export function buildTower(
   rightBody.position.set(TOWER_RADIUS, TOWER_HEIGHT / 2, 0);
   physics.addStaticBody(rightBody);
 
-  // Invisible front wall (upper portion only) prevents dice from flying
-  // out the open front while still letting them exit at the bottom into the tray.
-  const frontWallHeight = TOWER_HEIGHT - 2; // leave bottom 2 units open for tray exit
+  // Invisible front wall prevents dice from flying out the open front.
+  // Starts at y=2.5 to leave a tall gap for the ramp-to-tray exit.
+  // Dice bouncing off the bottom baffle (y=1.2) with upward velocity
+  // can reach y≈2 temporarily; the extra clearance prevents them from
+  // catching the wall's bottom edge. The baffles extend to z=1.3
+  // (only 0.2 unit gap to the wall at z=1.5), preventing dice from
+  // escaping during the baffle zig-zag phase.
+  const frontWallHeight = TOWER_HEIGHT - 2.5;
+  // Frictionless front wall so dice pinned between a baffle and the front
+  // wall slide down instead of stalling. Uses the same zero-friction surface
+  // as the ramp (cannon-es box-box solver needs friction=0 to actually slide).
   const frontBody = new CANNON.Body({
     mass: 0,
     shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS, frontWallHeight / 2, COLLISION_WALL_HALF)),
+    material: rampSurfaceMaterial,
   });
   frontBody.position.set(0, TOWER_HEIGHT - frontWallHeight / 2, TOWER_RADIUS);
   physics.addStaticBody(frontBody);

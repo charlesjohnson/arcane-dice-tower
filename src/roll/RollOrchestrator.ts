@@ -27,7 +27,7 @@ export interface RollResult {
 type StateChangeListener = (state: RollState, result: RollResult | null) => void;
 
 const SETTLE_WAIT_TIME = 1.0; // seconds to wait before checking settlement
-const MAX_SPREAD_X = 0.7; // TOWER_RADIUS (1.5) - die radius (0.6) - random offset (0.15)
+const MAX_SPREAD_X = 1.2; // TOWER_RADIUS (2.0) - die radius (0.6) - margin (0.2)
 
 /** Compute the clamped horizontal offset for the i-th die out of total. */
 export function computeSpawnOffsetX(index: number, total: number): number {
