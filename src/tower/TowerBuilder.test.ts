@@ -487,6 +487,41 @@ describe('Tower baffle geometry prevents dice from getting stuck', () => {
   });
 });
 
+describe('Tray wall containment', () => {
+  it('has tray walls tall enough for dice to stack two high', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
+
+    // Tray walls: left/right side walls (thin in x) and back wall (thin in z)
+    // positioned in the tray area (z > TOWER_RADIUS, y < 2)
+    const trayWallBodies = bodies.filter((b: CANNON.Body) => {
+      if (b.mass !== 0) return false;
+      if (b.position.y > 2) return false;
+      if (b.position.z < TOWER_RADIUS - 0.1) return false; // must be in tray area
+      const shape = b.shapes[0] as CANNON.Box;
+      if (!shape?.halfExtents) return false;
+      const isSideWall = shape.halfExtents.x < 0.2 && shape.halfExtents.z > 0.5;
+      const isBackWall = shape.halfExtents.z < 0.2 && shape.halfExtents.x >= 1.0;
+      return isSideWall || isBackWall;
+    });
+
+    expect(trayWallBodies.length).toBeGreaterThanOrEqual(3); // left, right, back
+
+    const minWallHeight = MAX_DIE_DIAMETER * 1.2; // at least 1.2x die diameter for stacking
+    for (const wall of trayWallBodies) {
+      const shape = wall.shapes[0] as CANNON.Box;
+      const wallHeight = shape.halfExtents.y * 2;
+      expect(
+        wallHeight,
+        `Tray wall at (${wall.position.x.toFixed(1)}, ${wall.position.z.toFixed(1)}): height ${wallHeight.toFixed(2)} too short for stacking (need ≥ ${minWallHeight})`
+      ).toBeGreaterThanOrEqual(minWallHeight);
+    }
+  });
+});
+
 describe('Ramp-to-tray transition', () => {
   it('tray floor uses a Plane (no edges to catch die corners)', () => {
     const scene = new THREE.Scene();

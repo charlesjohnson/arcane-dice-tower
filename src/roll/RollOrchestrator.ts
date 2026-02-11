@@ -26,9 +26,11 @@ export interface RollResult {
 }
 
 type StateChangeListener = (state: RollState, result: RollResult | null) => void;
+type SubtotalListener = (subtotal: number) => void;
 
 const SETTLE_WAIT_TIME = 1.0; // seconds to wait before checking settlement
 export const MAX_CONCURRENT_DICE = 4;
+export const MAX_TRAY_DICE = 8;
 const MAX_SPREAD_X = 1.2; // TOWER_RADIUS (2.0) - die radius (0.6) - margin (0.2)
 
 /** Compute the clamped horizontal offset for the i-th die out of total. */
@@ -48,8 +50,12 @@ export class RollOrchestrator {
   private state: RollState = 'idle';
   private settleTimer = 0;
   private listeners: StateChangeListener[] = [];
+  private subtotalListeners: SubtotalListener[] = [];
   private pendingBatches: SpawnEntry[][] = [];
   private currentBatchBodies: import('cannon-es').Body[] = [];
+  private accumulatedSubtotal = 0;
+  private accumulatedMaxTotal = 0;
+  private accumulatedDice: { type: DiceType; value: number }[] = [];
 
   constructor(scene: THREE.Scene, physics: PhysicsWorld, tower: Tower) {
     this.scene = scene;
@@ -59,6 +65,10 @@ export class RollOrchestrator {
 
   onStateChange(listener: StateChangeListener): void {
     this.listeners.push(listener);
+  }
+
+  onSubtotalUpdate(listener: SubtotalListener): void {
+    this.subtotalListeners.push(listener);
   }
 
   getState(): RollState {
@@ -78,6 +88,9 @@ export class RollOrchestrator {
     this.settleTimer = 0;
     this.pendingBatches = [];
     this.currentBatchBodies = [];
+    this.accumulatedSubtotal = 0;
+    this.accumulatedMaxTotal = 0;
+    this.accumulatedDice = [];
     this.setState('rolling', null);
 
     // Expand D100 into two D10 bodies (tens + units)
@@ -155,9 +168,17 @@ export class RollOrchestrator {
 
     if (this.areCurrentBatchSettled()) {
       if (this.pendingBatches.length > 0) {
+        const nextBatchSize = this.pendingBatches[0].length;
+        if (this.dice.length + nextBatchSize > MAX_TRAY_DICE) {
+          this.clearTrayWithSubtotal();
+        }
         this.spawnNextBatch();
       } else {
         const result = this.readResults();
+        // Include accumulated subtotal from cleared batches
+        result.total += this.accumulatedSubtotal;
+        result.maxTotal += this.accumulatedMaxTotal;
+        result.dice = [...this.accumulatedDice, ...result.dice];
         this.setState('settled', result);
       }
     }
@@ -269,6 +290,17 @@ export class RollOrchestrator {
     }
 
     return normals;
+  }
+
+  private clearTrayWithSubtotal(): void {
+    const partialResult = this.readResults();
+    this.accumulatedSubtotal += partialResult.total;
+    this.accumulatedMaxTotal += partialResult.maxTotal;
+    this.accumulatedDice.push(...partialResult.dice);
+    this.clearDice();
+    for (const listener of this.subtotalListeners) {
+      listener(this.accumulatedSubtotal);
+    }
   }
 
   private clearDice(): void {

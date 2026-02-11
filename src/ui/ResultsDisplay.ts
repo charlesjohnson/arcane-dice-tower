@@ -40,6 +40,17 @@ export class ResultsDisplay {
     this.container.classList.add('visible');
   }
 
+  showRunningTotal(subtotal: number): void {
+    this.container.innerHTML = '';
+
+    const total = document.createElement('div');
+    total.className = 'result-total';
+    total.textContent = String(subtotal);
+    this.container.appendChild(total);
+
+    this.container.classList.add('visible');
+  }
+
   hide(): void {
     this.container.classList.remove('visible');
   }

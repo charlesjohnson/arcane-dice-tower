@@ -93,6 +93,12 @@ const rollButton = new RollButton(uiRoot, () => {
   orchestrator.roll(dice);
 });
 
+// --- Wire subtotal updates for large rolls ---
+orchestrator.onSubtotalUpdate((subtotal: number) => {
+  resultsDisplay.showRunningTotal(subtotal);
+  if (audioInitialized) audio.playChime(1.0);
+});
+
 // --- Wire orchestrator state changes ---
 orchestrator.onStateChange((state: string, result: RollResult | null) => {
   if (state === 'rolling') {

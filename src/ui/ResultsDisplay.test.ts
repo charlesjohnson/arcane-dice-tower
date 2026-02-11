@@ -4,9 +4,14 @@ import { ResultsDisplay } from './ResultsDisplay';
 import type { RollResult } from '../roll/RollOrchestrator';
 
 describe('ResultsDisplay', () => {
-  it('shows total as rolled/max format', () => {
+  function createDisplay() {
     const root = document.createElement('div');
     const display = new ResultsDisplay(root);
+    return { display, root };
+  }
+
+  it('shows total as rolled/max format', () => {
+    const { display, root } = createDisplay();
 
     const result: RollResult = {
       dice: [
@@ -25,8 +30,7 @@ describe('ResultsDisplay', () => {
   });
 
   it('shows correct max for mixed dice', () => {
-    const root = document.createElement('div');
-    const display = new ResultsDisplay(root);
+    const { display, root } = createDisplay();
 
     const result: RollResult = {
       dice: [
@@ -44,8 +48,7 @@ describe('ResultsDisplay', () => {
   });
 
   it('rounds percentage down to nearest integer', () => {
-    const root = document.createElement('div');
-    const display = new ResultsDisplay(root);
+    const { display, root } = createDisplay();
 
     const result: RollResult = {
       dice: [{ type: 'd6', value: 1 }],
@@ -58,5 +61,36 @@ describe('ResultsDisplay', () => {
     const totalEl = root.querySelector('.result-total') as HTMLElement;
     // 1/6 = 16.666...% → 17% rounded
     expect(totalEl.textContent).toBe('= 1/6 (17%)');
+  });
+
+  it('showRunningTotal displays the subtotal in the results bar', () => {
+    const { display, root } = createDisplay();
+    display.showRunningTotal(42);
+
+    const bar = root.querySelector('.results-bar') as HTMLElement;
+    expect(bar.classList.contains('visible')).toBe(true);
+    expect(bar.textContent).toContain('42');
+  });
+
+  it('showRunningTotal updates when called again with a higher value', () => {
+    const { display, root } = createDisplay();
+    display.showRunningTotal(20);
+    display.showRunningTotal(55);
+
+    const bar = root.querySelector('.results-bar') as HTMLElement;
+    expect(bar.textContent).toContain('55');
+    expect(bar.textContent).not.toContain('20');
+  });
+
+  it('show() includes subtotal in final total display', () => {
+    const { display, root } = createDisplay();
+    display.show({
+      dice: [{ type: 'd6', value: 4 }, { type: 'd6', value: 3 }],
+      total: 49,
+      maxTotal: 72,
+    });
+
+    const bar = root.querySelector('.results-bar') as HTMLElement;
+    expect(bar.querySelector('.result-total')!.textContent).toContain('49');
   });
 });

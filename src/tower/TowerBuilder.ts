@@ -216,28 +216,33 @@ export function buildTower(
   floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // face upward
   physics.addStaticBody(floorBody);
 
-  // Tray walls (left, right, back)
-  const trayWallGeo = new THREE.BoxGeometry(WALL_THICKNESS, 0.6, TRAY_DEPTH);
+  // Tray walls (left, right, back, front) — tall enough for dice to stack
+  const TRAY_WALL_HEIGHT = 1.5;
+  const trayWallHalfY = TRAY_WALL_HEIGHT / 2;
+  const trayWallCenterY = trayFloorY + trayWallHalfY;
+
+  const trayWallGeo = new THREE.BoxGeometry(WALL_THICKNESS, TRAY_WALL_HEIGHT, TRAY_DEPTH);
   const leftTrayWall = new THREE.Mesh(trayWallGeo, ivoryMaterial);
-  leftTrayWall.position.set(-TRAY_WIDTH / 2, trayFloorY + 0.3, TOWER_RADIUS + TRAY_DEPTH / 2);
+  leftTrayWall.position.set(-TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2);
   group.add(leftTrayWall);
 
   const rightTrayWall = new THREE.Mesh(trayWallGeo.clone(), ivoryMaterial);
-  rightTrayWall.position.set(TRAY_WIDTH / 2, trayFloorY + 0.3, TOWER_RADIUS + TRAY_DEPTH / 2);
+  rightTrayWall.position.set(TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2);
   group.add(rightTrayWall);
 
   const backTrayWall = new THREE.Mesh(
-    new THREE.BoxGeometry(TRAY_WIDTH, 0.6, WALL_THICKNESS),
+    new THREE.BoxGeometry(TRAY_WIDTH, TRAY_WALL_HEIGHT, WALL_THICKNESS),
     ivoryMaterial
   );
-  backTrayWall.position.set(0, trayFloorY + 0.3, TOWER_RADIUS + TRAY_DEPTH);
+  backTrayWall.position.set(0, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH);
   group.add(backTrayWall);
 
-  // Tray wall physics
+  // Tray wall physics (left, right, back)
+  // No front wall — the tray opening at z=TOWER_RADIUS is where dice enter from the ramp.
   const trayWallPositions = [
-    { pos: [-TRAY_WIDTH / 2, trayFloorY + 0.3, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [WALL_THICKNESS / 2, 0.3, TRAY_DEPTH / 2] as const },
-    { pos: [TRAY_WIDTH / 2, trayFloorY + 0.3, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [WALL_THICKNESS / 2, 0.3, TRAY_DEPTH / 2] as const },
-    { pos: [0, trayFloorY + 0.3, TOWER_RADIUS + TRAY_DEPTH] as const, half: [TRAY_WIDTH / 2, 0.3, WALL_THICKNESS / 2] as const },
+    { pos: [-TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [WALL_THICKNESS / 2, trayWallHalfY, TRAY_DEPTH / 2] as const },
+    { pos: [TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [WALL_THICKNESS / 2, trayWallHalfY, TRAY_DEPTH / 2] as const },
+    { pos: [0, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH] as const, half: [TRAY_WIDTH / 2, trayWallHalfY, WALL_THICKNESS / 2] as const },
   ];
   for (const tw of trayWallPositions) {
     const wallBody = new CANNON.Body({
