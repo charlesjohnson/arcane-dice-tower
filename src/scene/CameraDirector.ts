@@ -3,10 +3,12 @@ import * as THREE from 'three';
 import { computeDiceCentroid, computeBoundingRadius, computeTrackingDistance } from './CameraTracker';
 import type { Vec3 } from './CameraTracker';
 
-type CameraMode = 'idle' | 'tracking' | 'tray-pivot' | 'tray' | 'returning';
+type CameraMode = 'idle' | 'tracking' | 'tray-pivot' | 'tray' | 'sweep-up' | 'returning';
 
 const DAMPING_SPEED = 5;
 const TRAY_PIVOT_DURATION = 0.7;
+const SWEEP_UP_DURATION = 0.8;
+const SWEEP_UP_Z = 5;
 
 // Fixed tray-view camera position and look-at
 const TRAY_VIEW_OFFSET_Y = 3.5;
@@ -31,6 +33,14 @@ export class CameraDirector {
   private pivotStartLookAt = new THREE.Vector3();
   private pivotEndPos = new THREE.Vector3();
   private pivotEndLookAt = new THREE.Vector3();
+
+  // Sweep-up transition state
+  private sweepProgress = 0;
+  private sweepStartPos = new THREE.Vector3();
+  private sweepStartLookAt = new THREE.Vector3();
+  private sweepEndPos = new THREE.Vector3();
+  private sweepEndLookAt = new THREE.Vector3();
+  private sweepCallback: (() => void) | null = null;
 
   // Return-to-idle transition
   private returnProgress = 0;
@@ -61,6 +71,16 @@ export class CameraDirector {
     this.pivotEndLookAt.set(0, this.trayFloorY + 0.5, TRAY_LOOK_Z);
   }
 
+  sweepToTop(dropY: number, onComplete: () => void): void {
+    this.mode = 'sweep-up';
+    this.sweepProgress = 0;
+    this.sweepStartPos.copy(this.camera.position);
+    this.sweepStartLookAt.copy(this.currentLookAt);
+    this.sweepEndPos.set(0, dropY, SWEEP_UP_Z);
+    this.sweepEndLookAt.set(0, dropY, 0);
+    this.sweepCallback = onComplete;
+  }
+
   returnToIdle(): void {
     this.mode = 'returning';
     this.returnProgress = 0;
@@ -77,6 +97,9 @@ export class CameraDirector {
         break;
       case 'tray-pivot':
         this.updateTrayPivot(delta);
+        break;
+      case 'sweep-up':
+        this.updateSweepUp(delta);
         break;
       case 'tray':
         // Static — camera stays put
@@ -133,6 +156,24 @@ export class CameraDirector {
     const t = this.easeInOut(this.pivotProgress);
     this.camera.position.lerpVectors(this.pivotStartPos, this.pivotEndPos, t);
     this.currentLookAt.lerpVectors(this.pivotStartLookAt, this.pivotEndLookAt, t);
+    this.camera.lookAt(this.currentLookAt);
+  }
+
+  private updateSweepUp(delta: number): void {
+    this.sweepProgress += delta / SWEEP_UP_DURATION;
+    if (this.sweepProgress >= 1) {
+      this.sweepProgress = 1;
+      this.mode = 'tracking';
+      this.smoothedCentroid.set(0, this.sweepEndPos.y, 0);
+      if (this.sweepCallback) {
+        this.sweepCallback();
+        this.sweepCallback = null;
+      }
+    }
+
+    const t = this.easeInOut(this.sweepProgress);
+    this.camera.position.lerpVectors(this.sweepStartPos, this.sweepEndPos, t);
+    this.currentLookAt.lerpVectors(this.sweepStartLookAt, this.sweepEndLookAt, t);
     this.camera.lookAt(this.currentLookAt);
   }
 

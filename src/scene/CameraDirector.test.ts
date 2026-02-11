@@ -162,6 +162,81 @@ describe('CameraDirector', () => {
     });
   });
 
+  describe('sweep-up between batches', () => {
+    it('sweepToTop moves camera to near drop position', () => {
+      const camera = makeCamera();
+      camera.position.set(0, 1, 5);
+      const director = new CameraDirector(camera);
+      director.startTracking(0.1);
+      director.update(0.1, [{ x: 0, y: 1, z: 2 }]);
+
+      const dropY = 8.5;
+      director.sweepToTop(dropY, () => {});
+
+      // Advance past sweep duration (0.8s)
+      for (let i = 0; i < 60; i++) {
+        director.update(1 / 60, []);
+      }
+
+      expect(camera.position.y).toBeCloseTo(dropY, 0);
+    });
+
+    it('fires callback when sweep completes', () => {
+      const camera = makeCamera();
+      const director = new CameraDirector(camera);
+      director.startTracking(0.1);
+      director.update(0.1, [{ x: 0, y: 3, z: 0 }]);
+
+      let callbackFired = false;
+      director.sweepToTop(8.5, () => { callbackFired = true; });
+
+      // Advance past sweep duration
+      for (let i = 0; i < 60; i++) {
+        director.update(1 / 60, []);
+      }
+
+      expect(callbackFired).toBe(true);
+    });
+
+    it('enters tracking mode after sweep completes', () => {
+      const camera = makeCamera();
+      const director = new CameraDirector(camera);
+      director.startTracking(0.1);
+      director.update(0.1, [{ x: 0, y: 3, z: 0 }]);
+
+      director.sweepToTop(8.5, () => {});
+
+      // Advance past sweep duration
+      for (let i = 0; i < 60; i++) {
+        director.update(1 / 60, []);
+      }
+
+      // Now in tracking mode — should respond to dice positions
+      const yBefore = camera.position.y;
+      for (let i = 0; i < 30; i++) {
+        director.update(1 / 60, [{ x: 0, y: 5, z: 0 }]);
+      }
+      // Camera should move toward y=5 from y≈8.5
+      expect(camera.position.y).toBeLessThan(yBefore);
+      expect(camera.position.y).toBeGreaterThan(4);
+    });
+
+    it('does not respond to dice positions during sweep', () => {
+      const camera = makeCamera();
+      camera.position.set(0, 1, 5);
+      const director = new CameraDirector(camera);
+      director.startTracking(0.1);
+      director.update(0.1, [{ x: 0, y: 1, z: 2 }]);
+
+      director.sweepToTop(8.5, () => {});
+
+      // Update with dice at y=0 (tray) — camera should NOT track them
+      director.update(0.1, [{ x: 0, y: 0, z: 2 }]);
+      // Camera should be moving UP toward 8.5, not down toward 0
+      expect(camera.position.y).toBeGreaterThan(1);
+    });
+  });
+
   describe('tray view persistence', () => {
     it('stays in tray view after pivot completes until explicitly changed', () => {
       const camera = makeCamera();

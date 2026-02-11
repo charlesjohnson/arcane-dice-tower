@@ -91,6 +91,7 @@ describe('Batch dice rolling', () => {
     const { orchestrator, scene, physics } = createOrchestrator();
     const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
     expect(scene.children.length).toBe(4);
 
@@ -113,6 +114,7 @@ describe('Batch dice rolling', () => {
       if (state === 'settled') capturedResult = result;
     });
 
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
 
     // Settle first batch
@@ -147,10 +149,114 @@ describe('Batch dice rolling', () => {
     expect(capturedResult!.total).toBeLessThanOrEqual(capturedResult!.maxTotal);
   });
 
+  describe('Batch-aware position queries', () => {
+    it('getCurrentBatchPositions returns only current batch positions', () => {
+      const { orchestrator } = createOrchestrator();
+      const dice = Array(6).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      orchestrator.roll(dice);
+
+      // Only first batch (4 dice) is spawned
+      const batchPositions = orchestrator.getCurrentBatchPositions();
+      expect(batchPositions.length).toBe(4);
+    });
+
+    it('hasPendingBatches returns true when more batches remain', () => {
+      const { orchestrator } = createOrchestrator();
+      const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      orchestrator.roll(dice);
+      expect(orchestrator.hasPendingBatches()).toBe(true);
+    });
+
+    it('hasPendingBatches returns false for single-batch rolls', () => {
+      const { orchestrator } = createOrchestrator();
+      const dice = Array(3).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      orchestrator.roll(dice);
+      expect(orchestrator.hasPendingBatches()).toBe(false);
+    });
+  });
+
+  describe('Batch-ready callback', () => {
+    it('fires onBatchReady when a non-final batch settles', () => {
+      const { orchestrator, physics } = createOrchestrator();
+      const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      let batchReadyCalled = false;
+      orchestrator.onBatchReady(() => { batchReadyCalled = true; });
+      orchestrator.roll(dice);
+
+      // Settle first batch
+      zeroAllVelocities(physics);
+      orchestrator.update(1.1);
+
+      expect(batchReadyCalled).toBe(true);
+      expect(orchestrator.getState()).toBe('rolling');
+    });
+
+    it('does not fire onBatchReady when final batch settles', () => {
+      const { orchestrator, physics } = createOrchestrator();
+      const dice = Array(3).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      let batchReadyCalled = false;
+      orchestrator.onBatchReady(() => { batchReadyCalled = true; });
+      orchestrator.roll(dice);
+
+      // Settle the only batch
+      zeroAllVelocities(physics);
+      orchestrator.update(1.1);
+
+      expect(batchReadyCalled).toBe(false);
+      expect(orchestrator.getState()).toBe('settled');
+    });
+
+    it('pauses until spawnNextBatch is called externally', () => {
+      const { orchestrator, scene, physics } = createOrchestrator();
+      const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      orchestrator.onBatchReady(() => {
+        // Don't call spawnNextBatch yet
+      });
+      orchestrator.roll(dice);
+      expect(scene.children.length).toBe(4);
+
+      // Settle first batch
+      zeroAllVelocities(physics);
+      orchestrator.update(1.1);
+
+      // Still only 4 dice (paused)
+      expect(scene.children.length).toBe(4);
+
+      // Now externally trigger next batch
+      orchestrator.spawnNextBatch();
+      expect(scene.children.length).toBe(8);
+    });
+
+    it('fires onBatchReady only once per batch settlement', () => {
+      const { orchestrator, physics } = createOrchestrator();
+      const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      let callCount = 0;
+      orchestrator.onBatchReady(() => { callCount++; });
+      orchestrator.roll(dice);
+
+      // Settle first batch
+      zeroAllVelocities(physics);
+      orchestrator.update(1.1);
+      // Additional updates while waiting
+      orchestrator.update(0.5);
+      orchestrator.update(0.5);
+
+      expect(callCount).toBe(1);
+    });
+  });
+
   it('resets settle timer between batches', () => {
     const { orchestrator, scene, physics } = createOrchestrator();
     const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
 
     // Settle first batch
@@ -175,6 +281,7 @@ describe('Tray overflow clearing', () => {
     // 12 dice = 3 batches of 4. After batches 1+2 (8 dice), before batch 3 clear.
     const dice = Array(12).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
     expect(scene.children.length).toBe(4); // batch 1
 
@@ -199,6 +306,7 @@ describe('Tray overflow clearing', () => {
       subtotalValue = subtotal;
     });
 
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
 
     // Settle batch 1
@@ -227,6 +335,7 @@ describe('Tray overflow clearing', () => {
       subtotalValue = subtotal;
     });
 
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
 
     // Settle batch 1
@@ -257,6 +366,7 @@ describe('Tray overflow clearing', () => {
     // 8 dice = 2 batches of 4. After batch 1 (4 dice), spawning 4 more = 8, no clear needed.
     const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
     expect(scene.children.length).toBe(4);
 
@@ -276,6 +386,7 @@ describe('Tray overflow clearing', () => {
       subtotals.push(subtotal);
     });
 
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     // First roll
     orchestrator.roll(dice);
     zeroAllVelocities(physics);
