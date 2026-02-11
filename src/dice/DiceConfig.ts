@@ -10,6 +10,12 @@ export interface DiceConfigEntry {
   isPercentile?: boolean;
 }
 
+/** Returns the maximum possible value for a single die of the given type. */
+export function getMaxValue(type: DiceType): number {
+  if (type === 'd100') return 100;
+  return Math.max(...DICE_CONFIGS[type].faceValues);
+}
+
 export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
   d4: {
     faceCount: 4,

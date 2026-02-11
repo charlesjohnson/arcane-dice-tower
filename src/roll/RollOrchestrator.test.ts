@@ -128,6 +128,25 @@ describe('Batch dice rolling', () => {
     expect(capturedResult!.dice.length).toBe(8);
   });
 
+  it('includes maxTotal in roll result', () => {
+    const { orchestrator, physics } = createOrchestrator();
+    // 2d6: max is 6+6 = 12
+    orchestrator.roll(['d6', 'd6']);
+
+    let capturedResult: RollResult | null = null;
+    orchestrator.onStateChange((state, result) => {
+      if (state === 'settled') capturedResult = result;
+    });
+
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    expect(orchestrator.getState()).toBe('settled');
+    expect(capturedResult).not.toBeNull();
+    expect(capturedResult!.maxTotal).toBe(12);
+    expect(capturedResult!.total).toBeLessThanOrEqual(capturedResult!.maxTotal);
+  });
+
   it('resets settle timer between batches', () => {
     const { orchestrator, scene, physics } = createOrchestrator();
     const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
