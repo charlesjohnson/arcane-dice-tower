@@ -16,7 +16,7 @@ const TRAY_LOOK_Z = 2.5;
 export class CameraDirector {
   private camera: THREE.PerspectiveCamera;
   private idlePosition = new THREE.Vector3(0, 6, 14);
-  private idleLookAt = new THREE.Vector3(0, 3.5, 0);
+  private idleLookAt = new THREE.Vector3(0, 2.0, 0);
   private currentLookAt = new THREE.Vector3();
 
   private mode: CameraMode = 'idle';
