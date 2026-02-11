@@ -140,4 +140,55 @@ describe('CameraDirector', () => {
       expect(camera.position.y).toBeGreaterThanOrEqual(6);
     });
   });
+
+  describe('tray view persistence', () => {
+    it('stays in tray view after pivot completes until explicitly changed', () => {
+      const camera = makeCamera();
+      const director = new CameraDirector(camera);
+      director.startTracking(0.1);
+      director.update(0.1, [{ x: 0, y: 3, z: 0 }]);
+      director.notifyTrayHit();
+
+      // Advance well past the 0.7s pivot duration
+      for (let i = 0; i < 120; i++) {
+        director.update(1 / 60, []);
+      }
+      const trayPos = camera.position.clone();
+
+      // Several more seconds pass (simulating post-settlement) — camera should stay put
+      for (let i = 0; i < 180; i++) {
+        director.update(1 / 60, []);
+      }
+
+      expect(camera.position.x).toBeCloseTo(trayPos.x, 5);
+      expect(camera.position.y).toBeCloseTo(trayPos.y, 5);
+      expect(camera.position.z).toBeCloseTo(trayPos.z, 5);
+      expect(director.isActive()).toBe(true);
+    });
+
+    it('transitions directly from tray view to tracking on next roll', () => {
+      const camera = makeCamera();
+      const director = new CameraDirector(camera);
+
+      // Get into tray mode
+      director.startTracking(0.1);
+      director.update(0.1, [{ x: 0, y: 3, z: 0 }]);
+      director.notifyTrayHit();
+      for (let i = 0; i < 120; i++) {
+        director.update(1 / 60, []);
+      }
+
+      // Start a new roll directly from tray mode (no returnToIdle first)
+      director.startTracking(0.1);
+      expect(director.isActive()).toBe(true);
+
+      // Track dice at top of tower
+      for (let i = 0; i < 60; i++) {
+        director.update(1 / 60, [{ x: 0, y: 8, z: -0.5 }]);
+      }
+
+      // Camera should have moved toward the dice (high up in tower)
+      expect(camera.position.y).toBeGreaterThan(4);
+    });
+  });
 });
