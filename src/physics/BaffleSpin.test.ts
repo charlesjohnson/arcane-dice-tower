@@ -39,7 +39,7 @@ describe('BaffleSpin', () => {
     expect(wallBody.angularVelocity.length()).toBe(0);
   });
 
-  it('does not apply impulse to box-shaped dice (D6)', () => {
+  it('applies angular impulse to box-shaped dice (D6) on baffle collision', () => {
     const baffleBody = new CANNON.Body({ mass: 0 });
     const half = 0.3;
     const diceBody = new CANNON.Body({
@@ -56,10 +56,10 @@ describe('BaffleSpin', () => {
       body: diceBody,
     } as unknown as CANNON.IBodyEvent);
 
-    // Box shapes get natural tumbling from off-center contacts
-    expect(diceBody.angularVelocity.x).toBe(before.x);
-    expect(diceBody.angularVelocity.y).toBe(before.y);
-    expect(diceBody.angularVelocity.z).toBe(before.z);
+    const after = diceBody.angularVelocity;
+    const delta = new CANNON.Vec3();
+    after.vsub(before, delta);
+    expect(delta.length()).toBeGreaterThan(0);
   });
 
   it('keeps impulse magnitude within a reasonable range', () => {
