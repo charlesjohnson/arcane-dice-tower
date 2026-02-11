@@ -45,10 +45,10 @@ export const D4_VERTEX_VALUES = [1, 2, 3, 4] as const;
  * Order: [top UV vertex, bottom-left UV vertex, bottom-right UV vertex].
  */
 export const D4_FACE_VERTEX_VALUES: readonly [number, number, number][] = [
-  [3, 2, 1],  // Face 0: buffer vertices v2, v1, v0
-  [1, 4, 3],  // Face 1: buffer vertices v0, v3, v2
-  [2, 4, 1],  // Face 2: buffer vertices v1, v3, v0
-  [3, 4, 2],  // Face 3: buffer vertices v2, v3, v1
+  [2, 1, 3],  // Face 0: UV [top, BL, BR] = vertex values [2, 1, 3]
+  [4, 3, 1],  // Face 1: UV [top, BL, BR] = vertex values [4, 3, 1]
+  [4, 1, 2],  // Face 2: UV [top, BL, BR] = vertex values [4, 1, 2]
+  [4, 2, 3],  // Face 3: UV [top, BL, BR] = vertex values [4, 2, 3]
 ];
 
 export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
