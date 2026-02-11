@@ -17,7 +17,7 @@ export function createDiceGeometry(type: DiceType): THREE.BufferGeometry {
     case 'd10':
     case 'd100':
       // D10 is indexed; convert to non-indexed so we can assign per-face UVs
-      return addFaceGroupsAndUVs(createD10Geometry(r).toNonIndexed(), config.faceCount);
+      return addD10FaceGroupsAndUVs(createD10Geometry(r).toNonIndexed(), config.faceCount);
     case 'd12':
       return addFaceGroupsAndUVs(new THREE.DodecahedronGeometry(r), config.faceCount);
     case 'd20':
@@ -117,6 +117,71 @@ function addFaceGroupsAndUVs(
       const [pu, pv] = projected[v];
       uvs[(start + v) * 2] = 0.5 + (pu / range) * 0.8;
       uvs[(start + v) * 2 + 1] = 0.5 + (pv / range) * 0.8;
+    }
+  }
+
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  return geometry;
+}
+
+/**
+ * Assigns symmetric diamond UV coordinates to D10 kite faces.
+ *
+ * The generic planar projection produces an asymmetric UV diamond because
+ * the kite faces are not perfectly planar (mid-ring vertices alternate in
+ * height). The asymmetry causes different shear in each triangle half,
+ * making face numbers appear wavy. This function forces a symmetric diamond
+ * so both halves distort the texture identically.
+ */
+function addD10FaceGroupsAndUVs(
+  geometry: THREE.BufferGeometry,
+  faceCount: number
+): THREE.BufferGeometry {
+  const posAttr = geometry.getAttribute('position');
+  const vertexCount = posAttr.count;
+  const verticesPerFace = vertexCount / faceCount;
+  const uvs = new Float32Array(vertexCount * 2);
+
+  const TOP_UV: [number, number] = [0.5, 0.9];
+  const BOT_UV: [number, number] = [0.5, 0.1];
+  const LEFT_UV: [number, number] = [0.35, 0.5];
+  const RIGHT_UV: [number, number] = [0.65, 0.5];
+
+  for (let face = 0; face < faceCount; face++) {
+    const start = face * verticesPerFace;
+    geometry.addGroup(start, verticesPerFace, face);
+
+    // Face outward direction (midway between adjacent mid-ring vertices)
+    const faceAngle = (face + 0.5) * Math.PI * 2 / faceCount;
+    // Tangent perpendicular to face normal in XZ plane: cross(Y, normal)
+    const tx = Math.sin(faceAngle);
+    const tz = -Math.cos(faceAngle);
+
+    // Apex threshold: midway between apex height and mid-ring height
+    let maxAbsY = 0;
+    for (let v = 0; v < verticesPerFace; v++) {
+      maxAbsY = Math.max(maxAbsY, Math.abs(posAttr.getY(start + v)));
+    }
+    const yThreshold = maxAbsY * 0.5;
+
+    for (let v = 0; v < verticesPerFace; v++) {
+      const idx = start + v;
+      const y = posAttr.getY(idx);
+      let uv: [number, number];
+
+      if (y > yThreshold) {
+        uv = TOP_UV;
+      } else if (y < -yThreshold) {
+        uv = BOT_UV;
+      } else {
+        // Mid-ring vertex: project onto face tangent to determine left/right
+        const x = posAttr.getX(idx);
+        const z = posAttr.getZ(idx);
+        uv = (x * tx + z * tz) > 0 ? RIGHT_UV : LEFT_UV;
+      }
+
+      uvs[idx * 2] = uv[0];
+      uvs[idx * 2 + 1] = uv[1];
     }
   }
 

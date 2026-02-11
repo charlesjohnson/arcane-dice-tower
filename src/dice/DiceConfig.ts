@@ -106,7 +106,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 4,
     radius: 0.55,
     faceValues: [30, 70, 10, 90, 50, 60, 20, 80, 0, 40],
-    fontScale: 0.3,
+    fontScale: 0.2,
     isPercentile: true,
   },
 };

@@ -67,6 +67,27 @@ describe('createDiceGeometry', () => {
     }
   );
 
+  it('d10 mid-ring vertices have symmetric V coordinates across each kite face', () => {
+    const geo = createDiceGeometry('d10');
+    const uvAttr = geo.getAttribute('uv') as THREE.BufferAttribute;
+    const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
+    const faceCount = 10;
+    const verticesPerFace = posAttr.count / faceCount;
+    const r = DICE_CONFIGS.d10.radius;
+
+    for (let face = 0; face < faceCount; face++) {
+      const start = face * verticesPerFace;
+
+      for (let v = 0; v < verticesPerFace; v++) {
+        const y = posAttr.getY(start + v);
+        // Mid-ring vertices (|y| much less than radius) should all be at V=0.5
+        if (Math.abs(y) < r * 0.5) {
+          expect(uvAttr.getY(start + v)).toBeCloseTo(0.5, 2);
+        }
+      }
+    }
+  });
+
   it('d10 UV mapping gives both triangles of each kite face meaningful area', () => {
     const geo = createDiceGeometry('d10');
     const uvAttr = geo.getAttribute('uv') as THREE.BufferAttribute;
