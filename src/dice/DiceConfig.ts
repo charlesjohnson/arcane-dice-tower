@@ -6,6 +6,7 @@ export interface DiceConfigEntry {
   mass: number;
   radius: number;
   faceValues: number[];
+  fontScale: number;
   isPercentile?: boolean;
 }
 
@@ -16,6 +17,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 3,
     radius: 0.6,
     faceValues: [1, 2, 3, 4],
+    fontScale: 0.3,
   },
   d6: {
     faceCount: 6,
@@ -23,6 +25,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 4,
     radius: 0.5,
     faceValues: [1, 2, 3, 4, 5, 6],
+    fontScale: 0.4,
   },
   d8: {
     faceCount: 8,
@@ -30,6 +33,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 3.5,
     radius: 0.55,
     faceValues: [1, 2, 3, 4, 5, 6, 7, 8],
+    fontScale: 0.3,
   },
   d10: {
     faceCount: 10,
@@ -37,6 +41,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 4,
     radius: 0.55,
     faceValues: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    fontScale: 0.35,
   },
   d12: {
     faceCount: 12,
@@ -44,6 +49,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 4.5,
     radius: 0.6,
     faceValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    fontScale: 0.35,
   },
   d20: {
     faceCount: 20,
@@ -51,6 +57,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 4,
     radius: 0.6,
     faceValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    fontScale: 0.22,
   },
   d100: {
     faceCount: 10,
@@ -58,6 +65,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 4,
     radius: 0.55,
     faceValues: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
+    fontScale: 0.3,
     isPercentile: true,
   },
 };

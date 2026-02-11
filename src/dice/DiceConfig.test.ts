@@ -32,4 +32,16 @@ describe('DiceConfig', () => {
       expect(cfg.radius).toBeGreaterThan(0);
     }
   });
+
+  it('dice with smaller faces have smaller fontScale', () => {
+    // d20 has the smallest faces (20 triangles), needs smallest text
+    // d6 has large square faces, can have larger text
+    expect(DICE_CONFIGS.d20.fontScale).toBeLessThan(DICE_CONFIGS.d6.fontScale);
+    expect(DICE_CONFIGS.d4.fontScale).toBeLessThan(DICE_CONFIGS.d6.fontScale);
+    for (const key of Object.keys(DICE_CONFIGS)) {
+      const cfg = DICE_CONFIGS[key as DiceType];
+      expect(cfg.fontScale).toBeGreaterThan(0);
+      expect(cfg.fontScale).toBeLessThanOrEqual(0.4);
+    }
+  });
 });
