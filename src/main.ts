@@ -58,8 +58,13 @@ for (const baffleBody of tower.baffleBodies) {
   });
 }
 
+let trayHitNotified = false;
 tower.trayFloorBody.addEventListener('collide', () => {
   if (audioInitialized) audio.playImpact(0.5);
+  if (!trayHitNotified && orchestrator.getState() === 'rolling') {
+    cameraDirector.notifyTrayHit();
+    trayHitNotified = true;
+  }
 });
 
 // --- Wire Roll Button ---
@@ -75,7 +80,8 @@ orchestrator.onStateChange((state: string, result: RollResult | null) => {
   if (state === 'rolling') {
     rollButton.setDisabled(true);
     resultsDisplay.hide();
-    cameraDirector.playRollSequence(tower.dropPosition.y, tower.trayFloorY);
+    trayHitNotified = false;
+    cameraDirector.startTracking(tower.trayFloorY);
     effects.conjureDice(tower.dropPosition);
   } else if (state === 'settled' && result) {
     rollButton.setDisabled(false);
@@ -97,7 +103,7 @@ orchestrator.onStateChange((state: string, result: RollResult | null) => {
       }
     }
 
-    // Camera stays on tray for results; roll sequence handles pullback
+    cameraDirector.returnToIdle();
   }
 });
 
@@ -126,7 +132,7 @@ function animate(): void {
 
   physics.step(delta);
   orchestrator.update(delta);
-  cameraDirector.update(delta);
+  cameraDirector.update(delta, orchestrator.getDicePositions());
   effects.update(delta);
   ambientBackground.update(elapsed);
   diceSelector.updateMiniDice(elapsed);
