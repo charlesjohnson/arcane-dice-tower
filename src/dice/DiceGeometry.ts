@@ -146,6 +146,7 @@ function addD10FaceGroupsAndUVs(
   const BOT_UV: [number, number] = [0.5, 0.1];
   const LEFT_UV: [number, number] = [0.35, 0.5];
   const RIGHT_UV: [number, number] = [0.65, 0.5];
+  const CENTER_UV: [number, number] = [0.5, 0.5];
 
   for (let face = 0; face < faceCount; face++) {
     const start = face * verticesPerFace;
@@ -166,18 +167,23 @@ function addD10FaceGroupsAndUVs(
 
     for (let v = 0; v < verticesPerFace; v++) {
       const idx = start + v;
-      const y = posAttr.getY(idx);
       let uv: [number, number];
 
-      if (y > yThreshold) {
-        uv = TOP_UV;
-      } else if (y < -yThreshold) {
-        uv = BOT_UV;
+      if (v % 3 === 0) {
+        // Fan center vertex (equator midpoint) — first vertex of each triangle
+        uv = CENTER_UV;
       } else {
-        // Mid-ring vertex: project onto face tangent to determine left/right
-        const x = posAttr.getX(idx);
-        const z = posAttr.getZ(idx);
-        uv = (x * tx + z * tz) > 0 ? RIGHT_UV : LEFT_UV;
+        const y = posAttr.getY(idx);
+        if (y > yThreshold) {
+          uv = TOP_UV;
+        } else if (y < -yThreshold) {
+          uv = BOT_UV;
+        } else {
+          // Mid-ring vertex: project onto face tangent to determine left/right
+          const x = posAttr.getX(idx);
+          const z = posAttr.getZ(idx);
+          uv = (x * tx + z * tz) > 0 ? RIGHT_UV : LEFT_UV;
+        }
       }
 
       uvs[idx * 2] = uv[0];
@@ -190,7 +196,9 @@ function addD10FaceGroupsAndUVs(
 }
 
 function createD10Geometry(radius: number): THREE.BufferGeometry {
-  // Pentagonal trapezohedron: 12 vertices, 10 kite faces (20 triangles)
+  // Pentagonal trapezohedron: 22 vertices, 10 kite faces (40 triangles)
+  // Each kite is subdivided into 4 triangles via an equator midpoint vertex
+  // for better texture interpolation (reduces affine distortion on narrow kites).
   const vertices: number[] = [];
   const indices: number[] = [];
 
@@ -210,18 +218,27 @@ function createD10Geometry(radius: number): THREE.BufferGeometry {
     );
   }
 
-  // Build faces: each kite = 2 triangles
+  // 10 equator midpoint vertices (one per face, midpoint of adjacent mid-ring vertices)
   for (let i = 0; i < 10; i++) {
     const curr = i + 2;
     const next = ((i + 1) % 10) + 2;
+    vertices.push(
+      (vertices[curr * 3] + vertices[next * 3]) / 2,
+      (vertices[curr * 3 + 1] + vertices[next * 3 + 1]) / 2,
+      (vertices[curr * 3 + 2] + vertices[next * 3 + 2]) / 2
+    );
+  }
 
-    if (i % 2 === 0) {
-      indices.push(0, next, curr);
-      indices.push(next, 1, curr);
-    } else {
-      indices.push(curr, 0, next);
-      indices.push(1, curr, next);
-    }
+  // Build faces: each kite = 4 triangles in a fan from equator midpoint
+  for (let i = 0; i < 10; i++) {
+    const curr = i + 2;
+    const next = ((i + 1) % 10) + 2;
+    const center = 12 + i;
+
+    indices.push(center, 0, next);   // upper-left
+    indices.push(center, next, 1);   // lower-left
+    indices.push(center, 1, curr);   // lower-right
+    indices.push(center, curr, 0);   // upper-right
   }
 
   const geometry = new THREE.BufferGeometry();

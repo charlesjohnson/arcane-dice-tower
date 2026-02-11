@@ -82,7 +82,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 4,
     radius: 0.55,
     faceValues: [3, 7, 1, 9, 5, 6, 2, 8, 0, 4],
-    fontScale: 0.35,
+    fontScale: 0.25,
   },
   d12: {
     faceCount: 12,
@@ -106,7 +106,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     mass: 4,
     radius: 0.55,
     faceValues: [30, 70, 10, 90, 50, 60, 20, 80, 0, 40],
-    fontScale: 0.2,
+    fontScale: 0.17,
     isPercentile: true,
   },
 };

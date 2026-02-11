@@ -88,7 +88,14 @@ describe('createDiceGeometry', () => {
     }
   });
 
-  it('d10 UV mapping gives both triangles of each kite face meaningful area', () => {
+  it('d10 kite faces are subdivided into 4 triangles for better texture mapping', () => {
+    const geo = createDiceGeometry('d10');
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    // 10 faces × 4 triangles × 3 vertices = 120
+    expect(pos.count).toBe(120);
+  });
+
+  it('d10 UV mapping gives all triangles of each kite face meaningful area', () => {
     const geo = createDiceGeometry('d10');
     const uvAttr = geo.getAttribute('uv') as THREE.BufferAttribute;
     const faceCount = 10;
