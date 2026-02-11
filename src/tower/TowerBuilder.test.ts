@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { buildTower } from './TowerBuilder';
-import { DICE_MATERIAL } from '../dice/DiceBody';
+import { createDiceBody } from '../dice/DiceBody';
+import type { DiceType } from '../dice/DiceConfig';
+import { DICE_CONFIGS } from '../dice/DiceConfig';
 
 const TOWER_RADIUS = 2.0;
 const COLLISION_WALL_HALF = 0.5;
@@ -478,190 +480,178 @@ describe('cannon-es box-on-slope friction workaround', () => {
   });
 });
 
-describe('End-to-end: D6 reaches the tray', () => {
-  // The hardest case: a D6 (box shape) has flat faces that create
-  // more friction and can catch on edges. If the tower works for a
-  // D6, it works for all dice.
+// All physically distinct dice types to test E2E through the tower.
+// D100 is omitted — it uses the same shape, mass, and radius as D10.
+const E2E_DICE_TYPES: DiceType[] = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20'];
 
-  function dropD6(
-    angularVelocity: [number, number, number],
-    offsetX = 0
-  ): { finalPos: CANNON.Vec3; stuck: boolean; escapedWalls: boolean; fellThrough: boolean } {
-    const scene = new THREE.Scene();
-    const physics = new PhysicsWorld();
-    const tower = buildTower(scene, physics);
+function dropDie(
+  type: DiceType,
+  angularVelocity: [number, number, number],
+  offsetX = 0
+): { finalPos: CANNON.Vec3; stuck: boolean; escapedWalls: boolean; fellThrough: boolean } {
+  const scene = new THREE.Scene();
+  const physics = new PhysicsWorld();
+  const tower = buildTower(scene, physics);
 
-    // Create a D6 box body matching DiceBody.ts (radius 0.6, half = 0.36)
-    const d6Half = (0.6 * 1.2) / 2; // 0.36
-    const die = new CANNON.Body({
-      mass: 0.3,
-      shape: new CANNON.Box(new CANNON.Vec3(d6Half, d6Half, d6Half)),
-      material: DICE_MATERIAL,
-      linearDamping: 0.5,
-      angularDamping: 0.5,
-    });
-    // Disable sleep so cannon-es doesn't freeze the die prematurely when
-    // box-box contacts briefly create a zero-velocity state on baffles.
+  const die = createDiceBody(type);
+  // D6 uses box shape — disable sleep to prevent cannon-es from freezing
+  // the die when box-box contacts briefly create a zero-velocity state on baffles.
+  if (type === 'd6') {
     die.allowSleep = false;
+  }
 
-    die.position.set(
-      tower.dropPosition.x + offsetX,
-      tower.dropPosition.y,
-      tower.dropPosition.z
-    );
-    die.angularVelocity.set(...angularVelocity);
-    physics.addDynamicBody(die);
+  die.position.set(
+    tower.dropPosition.x + offsetX,
+    tower.dropPosition.y,
+    tower.dropPosition.z
+  );
+  die.angularVelocity.set(...angularVelocity);
+  physics.addDynamicBody(die);
 
-    const wallInner = TOWER_RADIUS - COLLISION_WALL_HALF;
-    let escapedWalls = false;
-    let fellThrough = false;
+  const wallInner = TOWER_RADIUS - COLLISION_WALL_HALF;
+  let escapedWalls = false;
+  let fellThrough = false;
 
-    // Simulate 15 seconds (900 steps at 1/60) — low-spin dice need extra
-    // time to traverse frictionless baffles before reaching the ramp.
-    for (let i = 0; i < 900; i++) {
-      physics.step(1 / 60);
+  // Simulate 15 seconds (900 steps at 1/60) — low-spin dice need extra
+  // time to traverse frictionless baffles before reaching the ramp.
+  for (let i = 0; i < 900; i++) {
+    physics.step(1 / 60);
 
-      if (Math.abs(die.position.x) > wallInner + 0.5) escapedWalls = true;
-      if (die.position.y < -2) fellThrough = true;
+    if (Math.abs(die.position.x) > wallInner + 0.5) escapedWalls = true;
+    if (die.position.y < -2) fellThrough = true;
+  }
+
+  // Die is "stuck" if it's still inside the tower after 15 seconds.
+  // Tray is at z > TOWER_RADIUS. A die in the tray or past the front
+  // wall exit is considered successful.
+  const inTray = die.position.z > TOWER_RADIUS - 0.5 && die.position.y < 1.5;
+  const stuck = !inTray && !fellThrough;
+
+  return { finalPos: die.position, stuck, escapedWalls, fellThrough };
+}
+
+// Test multiple angular velocities covering different drop scenarios:
+// centered, off-center, high spin, low spin, various axes.
+const reachTrials: { name: string; angVel: [number, number, number]; offsetX: number }[] = [
+  { name: 'centered, moderate spin',    angVel: [5, -3, 4],     offsetX: 0 },
+  { name: 'centered, high spin',        angVel: [15, -10, 12],  offsetX: 0 },
+  { name: 'centered, low spin',         angVel: [2, -1, 2],     offsetX: 0 },
+  { name: 'left offset, spin right',    angVel: [-8, 3, -6],    offsetX: -0.5 },
+  { name: 'right offset, spin left',    angVel: [8, -3, 6],     offsetX: 0.5 },
+  { name: 'no spin (worst case)',       angVel: [0, 0, 0],      offsetX: 0 },
+  { name: 'pure Z spin',               angVel: [0, 0, 15],     offsetX: 0 },
+  { name: 'pure X spin',               angVel: [15, 0, 0],     offsetX: 0 },
+  { name: 'max offset left',           angVel: [10, -5, 8],    offsetX: -1.0 },
+  { name: 'max offset right',          angVel: [-10, 5, -8],   offsetX: 1.0 },
+];
+
+for (const type of E2E_DICE_TYPES) {
+  const label = DICE_CONFIGS[type].label;
+
+  describe(`End-to-end: ${label} reaches the tray`, () => {
+    for (const trial of reachTrials) {
+      it(`reaches the tray: ${trial.name}`, () => {
+        const result = dropDie(type, trial.angVel, trial.offsetX);
+
+        expect(
+          result.fellThrough,
+          `Die fell through floor! Final pos: (${result.finalPos.x.toFixed(2)}, ${result.finalPos.y.toFixed(2)}, ${result.finalPos.z.toFixed(2)})`
+        ).toBe(false);
+
+        expect(
+          result.escapedWalls,
+          `Die escaped tower walls! Final pos: (${result.finalPos.x.toFixed(2)}, ${result.finalPos.y.toFixed(2)}, ${result.finalPos.z.toFixed(2)})`
+        ).toBe(false);
+
+        expect(
+          result.stuck,
+          `Die stuck in tower! Final pos: (${result.finalPos.x.toFixed(2)}, ${result.finalPos.y.toFixed(2)}, ${result.finalPos.z.toFixed(2)})`
+        ).toBe(false);
+      });
     }
+  });
+}
 
-    // Die is "stuck" if it's still inside the tower after 10 seconds.
-    // Tray is at z > TOWER_RADIUS. A die in the tray or past the front
-    // wall exit is considered successful.
+const SETTLE_SPEED = 0.05;        // matches PhysicsWorld VELOCITY_THRESHOLD
+const SETTLE_ANG_SPEED = 0.1;     // matches PhysicsWorld ANGULAR_VELOCITY_THRESHOLD
+const SETTLE_BUDGET_STEPS = 300;  // 5 seconds at 60fps
+
+function dropAndSettle(
+  type: DiceType,
+  angularVelocity: [number, number, number],
+  offsetX = 0
+): { settled: boolean; settleSteps: number; finalPos: CANNON.Vec3; finalSpeed: number; finalAngSpeed: number } {
+  const scene = new THREE.Scene();
+  const physics = new PhysicsWorld();
+  const tower = buildTower(scene, physics);
+
+  const die = createDiceBody(type);
+
+  die.position.set(
+    tower.dropPosition.x + offsetX,
+    tower.dropPosition.y,
+    tower.dropPosition.z
+  );
+  die.angularVelocity.set(...angularVelocity);
+  physics.addDynamicBody(die);
+
+  let trayEntryStep = -1;
+  let settleStep = -1;
+  const maxSteps = 1800; // 30 seconds total budget
+
+  for (let i = 0; i < maxSteps; i++) {
+    physics.step(1 / 60);
+
     const inTray = die.position.z > TOWER_RADIUS - 0.5 && die.position.y < 1.5;
-    const stuck = !inTray && !fellThrough;
-
-    return { finalPos: die.position, stuck, escapedWalls, fellThrough };
-  }
-
-  // Test multiple angular velocities covering different drop scenarios:
-  // centered, off-center, high spin, low spin, various axes.
-  const trials: { name: string; angVel: [number, number, number]; offsetX: number }[] = [
-    { name: 'centered, moderate spin',    angVel: [5, -3, 4],     offsetX: 0 },
-    { name: 'centered, high spin',        angVel: [15, -10, 12],  offsetX: 0 },
-    { name: 'centered, low spin',         angVel: [2, -1, 2],     offsetX: 0 },
-    { name: 'left offset, spin right',    angVel: [-8, 3, -6],    offsetX: -0.5 },
-    { name: 'right offset, spin left',    angVel: [8, -3, 6],     offsetX: 0.5 },
-    { name: 'no spin (worst case)',       angVel: [0, 0, 0],      offsetX: 0 },
-    { name: 'pure Z spin',               angVel: [0, 0, 15],     offsetX: 0 },
-    { name: 'pure X spin',               angVel: [15, 0, 0],     offsetX: 0 },
-    { name: 'max offset left',           angVel: [10, -5, 8],    offsetX: -1.0 },
-    { name: 'max offset right',          angVel: [-10, 5, -8],   offsetX: 1.0 },
-  ];
-
-  for (const trial of trials) {
-    it(`reaches the tray: ${trial.name}`, () => {
-      const result = dropD6(trial.angVel, trial.offsetX);
-
-      expect(
-        result.fellThrough,
-        `Die fell through floor! Final pos: (${result.finalPos.x.toFixed(2)}, ${result.finalPos.y.toFixed(2)}, ${result.finalPos.z.toFixed(2)})`
-      ).toBe(false);
-
-      expect(
-        result.escapedWalls,
-        `Die escaped tower walls! Final pos: (${result.finalPos.x.toFixed(2)}, ${result.finalPos.y.toFixed(2)}, ${result.finalPos.z.toFixed(2)})`
-      ).toBe(false);
-
-      expect(
-        result.stuck,
-        `Die stuck in tower! Final pos: (${result.finalPos.x.toFixed(2)}, ${result.finalPos.y.toFixed(2)}, ${result.finalPos.z.toFixed(2)})`
-      ).toBe(false);
-    });
-  }
-});
-
-describe('End-to-end: D6 settles in the tray', () => {
-  // After traversing the tower, the die must come to rest quickly in the
-  // tray so the game can read results. Uses production thresholds from
-  // PhysicsWorld.areBodiesSettled() (speed < 0.05, angSpeed < 0.1) and
-  // requires settling within 3 seconds of entering the tray.
-
-  const SETTLE_SPEED = 0.05;        // matches PhysicsWorld VELOCITY_THRESHOLD
-  const SETTLE_ANG_SPEED = 0.1;     // matches PhysicsWorld ANGULAR_VELOCITY_THRESHOLD
-  const SETTLE_BUDGET_STEPS = 300;  // 5 seconds at 60fps
-
-  function dropAndSettle(
-    angularVelocity: [number, number, number],
-    offsetX = 0
-  ): { settled: boolean; settleSteps: number; finalPos: CANNON.Vec3; finalSpeed: number; finalAngSpeed: number } {
-    const scene = new THREE.Scene();
-    const physics = new PhysicsWorld();
-    const tower = buildTower(scene, physics);
-
-    const d6Half = (0.6 * 1.2) / 2;
-    const die = new CANNON.Body({
-      mass: 0.3,
-      shape: new CANNON.Box(new CANNON.Vec3(d6Half, d6Half, d6Half)),
-      material: DICE_MATERIAL,
-      linearDamping: 0.5,
-      angularDamping: 0.5,
-    });
-    // Match production dice: sleep enabled so die freezes once at rest
-    die.allowSleep = true;
-    die.sleepSpeedLimit = 0.05;
-    die.sleepTimeLimit = 0.5;
-
-    die.position.set(
-      tower.dropPosition.x + offsetX,
-      tower.dropPosition.y,
-      tower.dropPosition.z
-    );
-    die.angularVelocity.set(...angularVelocity);
-    physics.addDynamicBody(die);
-
-    let trayEntryStep = -1;
-    let settleStep = -1;
-    const maxSteps = 1800; // 30 seconds total budget
-
-    for (let i = 0; i < maxSteps; i++) {
-      physics.step(1 / 60);
-
-      const inTray = die.position.z > TOWER_RADIUS - 0.5 && die.position.y < 1.5;
-      if (inTray && trayEntryStep < 0) {
-        trayEntryStep = i;
-      }
-
-      // Check production-level settlement after tray entry
-      if (trayEntryStep >= 0) {
-        const speed = die.velocity.length();
-        const angSpeed = die.angularVelocity.length();
-        if (speed < SETTLE_SPEED && angSpeed < SETTLE_ANG_SPEED) {
-          settleStep = i;
-          break;
-        }
-        // Give up if past budget
-        if (i - trayEntryStep >= SETTLE_BUDGET_STEPS) {
-          break;
-        }
-      }
+    if (inTray && trayEntryStep < 0) {
+      trayEntryStep = i;
     }
 
-    const speed = die.velocity.length();
-    const angSpeed = die.angularVelocity.length();
-    const settleSteps = settleStep >= 0 ? settleStep - trayEntryStep : -1;
-    const settled = settleStep >= 0;
-
-    return { settled, settleSteps, finalPos: die.position, finalSpeed: speed, finalAngSpeed: angSpeed };
+    // Check production-level settlement after tray entry
+    if (trayEntryStep >= 0) {
+      const speed = die.velocity.length();
+      const angSpeed = die.angularVelocity.length();
+      if (speed < SETTLE_SPEED && angSpeed < SETTLE_ANG_SPEED) {
+        settleStep = i;
+        break;
+      }
+      // Give up if past budget
+      if (i - trayEntryStep >= SETTLE_BUDGET_STEPS) {
+        break;
+      }
+    }
   }
 
-  const settleTrials: { name: string; angVel: [number, number, number]; offsetX: number }[] = [
-    { name: 'moderate spin',   angVel: [5, -3, 4],     offsetX: 0 },
-    { name: 'high spin',       angVel: [15, -10, 12],  offsetX: 0 },
-    { name: 'no spin',         angVel: [0, 0, 0],      offsetX: 0 },
-    { name: 'offset with spin', angVel: [8, -3, 6],    offsetX: 0.5 },
-  ];
+  const speed = die.velocity.length();
+  const angSpeed = die.angularVelocity.length();
+  const settleSteps = settleStep >= 0 ? settleStep - trayEntryStep : -1;
+  const settled = settleStep >= 0;
 
-  for (const trial of settleTrials) {
-    it(`settles within 5s of tray entry: ${trial.name}`, () => {
-      const result = dropAndSettle(trial.angVel, trial.offsetX);
+  return { settled, settleSteps, finalPos: die.position, finalSpeed: speed, finalAngSpeed: angSpeed };
+}
 
-      expect(
-        result.settled,
-        `Die did not settle within 5s! speed=${result.finalSpeed.toFixed(3)}, ` +
-        `angSpeed=${result.finalAngSpeed.toFixed(3)}, ` +
-        `pos=(${result.finalPos.x.toFixed(2)}, ${result.finalPos.y.toFixed(2)}, ${result.finalPos.z.toFixed(2)})`
-      ).toBe(true);
-    });
-  }
-});
+const settleTrials: { name: string; angVel: [number, number, number]; offsetX: number }[] = [
+  { name: 'moderate spin',   angVel: [5, -3, 4],     offsetX: 0 },
+  { name: 'high spin',       angVel: [15, -10, 12],  offsetX: 0 },
+  { name: 'no spin',         angVel: [0, 0, 0],      offsetX: 0 },
+  { name: 'offset with spin', angVel: [8, -3, 6],    offsetX: 0.5 },
+];
+
+for (const type of E2E_DICE_TYPES) {
+  const label = DICE_CONFIGS[type].label;
+
+  describe(`End-to-end: ${label} settles in the tray`, () => {
+    for (const trial of settleTrials) {
+      it(`settles within 5s of tray entry: ${trial.name}`, () => {
+        const result = dropAndSettle(type, trial.angVel, trial.offsetX);
+
+        expect(
+          result.settled,
+          `Die did not settle within 5s! speed=${result.finalSpeed.toFixed(3)}, ` +
+          `angSpeed=${result.finalAngSpeed.toFixed(3)}, ` +
+          `pos=(${result.finalPos.x.toFixed(2)}, ${result.finalPos.y.toFixed(2)}, ${result.finalPos.z.toFixed(2)})`
+        ).toBe(true);
+      });
+    }
+  });
+}
