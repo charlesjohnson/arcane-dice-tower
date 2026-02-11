@@ -269,6 +269,32 @@ export function injectStyles(): void {
         height: 24px;
       }
     }
+
+    .dice-viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .dice-viewer-overlay canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    .dice-viewer-label {
+      position: absolute;
+      bottom: 40px;
+      color: #bb99ff;
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 0 0 15px rgba(136, 85, 255, 0.5);
+      letter-spacing: 2px;
+    }
   `;
   document.head.appendChild(style);
 }

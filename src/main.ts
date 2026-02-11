@@ -12,6 +12,7 @@ import { DiceSelector } from './ui/DiceSelector.ts';
 import { RollButton } from './ui/RollButton.ts';
 import { ResultsDisplay } from './ui/ResultsDisplay.ts';
 import { PresetsPanel } from './ui/PresetsPanel.ts';
+import { DiceViewer } from './ui/DiceViewer.ts';
 import type { DiceType } from './dice/DiceConfig.ts';
 import type { RollResult } from './roll/RollOrchestrator.ts';
 import type { Preset } from './ui/PresetsPanel.ts';
@@ -44,6 +45,12 @@ const uiRoot = document.getElementById('ui-root')!;
 const diceSelector = new DiceSelector(uiRoot);
 const resultsDisplay = new ResultsDisplay(uiRoot);
 const presetsPanel = new PresetsPanel(uiRoot);
+const diceViewer = new DiceViewer(uiRoot);
+
+// --- Wire dice viewer keyboard shortcut ---
+window.addEventListener('keydown', (e) => {
+  diceViewer.handleKey(e.key);
+});
 
 // --- Audio initialization on first interaction ---
 let audioInitialized = false;
