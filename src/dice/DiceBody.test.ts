@@ -1,5 +1,39 @@
 import { describe, it, expect } from 'vitest';
+import * as CANNON from 'cannon-es';
 import { createDiceBody, applyRandomRollForce } from './DiceBody';
+import { DICE_CONFIGS } from './DiceConfig';
+
+describe('createDiceBody', () => {
+  it('uses a ConvexPolyhedron for d4, not a sphere', () => {
+    const body = createDiceBody('d4');
+    const shape = body.shapes[0];
+
+    // A sphere approximation causes the d4 to float above surfaces
+    // because the tetrahedron inradius is only 1/3 of the circumradius.
+    // The d4 must use a shape that matches its tetrahedron geometry.
+    expect(shape).not.toBeInstanceOf(CANNON.Sphere);
+    expect(shape).toBeInstanceOf(CANNON.ConvexPolyhedron);
+  });
+
+  it('d4 ConvexPolyhedron has 4 vertices and 4 faces', () => {
+    const body = createDiceBody('d4');
+    const shape = body.shapes[0] as CANNON.ConvexPolyhedron;
+
+    expect(shape.vertices).toHaveLength(4);
+    expect(shape.faces).toHaveLength(4);
+  });
+
+  it('d4 vertices lie at the configured radius from the origin', () => {
+    const body = createDiceBody('d4');
+    const shape = body.shapes[0] as CANNON.ConvexPolyhedron;
+    const expectedRadius = DICE_CONFIGS.d4.radius;
+
+    for (const v of shape.vertices) {
+      const dist = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+      expect(dist).toBeCloseTo(expectedRadius, 4);
+    }
+  });
+});
 
 describe('applyRandomRollForce', () => {
   it('keeps position offset within tower walls over many random samples', () => {

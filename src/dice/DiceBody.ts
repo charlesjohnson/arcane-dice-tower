@@ -28,6 +28,10 @@ export function createDiceBody(type: DiceType): CANNON.Body {
 }
 
 function createCollisionShape(type: DiceType, radius: number): CANNON.Shape {
+  if (type === 'd4') {
+    return createTetrahedronShape(radius);
+  }
+
   if (type === 'd6') {
     const half = (radius * 1.2) / 2;
     return new CANNON.Box(new CANNON.Vec3(half, half, half));
@@ -35,6 +39,28 @@ function createCollisionShape(type: DiceType, radius: number): CANNON.Shape {
 
   // For all other dice, approximate with a sphere
   return new CANNON.Sphere(radius);
+}
+
+function createTetrahedronShape(radius: number): CANNON.ConvexPolyhedron {
+  // Match Three.js TetrahedronGeometry vertices: a regular tetrahedron
+  // with all vertices at distance `radius` from the origin.
+  const s = radius / Math.sqrt(3);
+  const vertices = [
+    new CANNON.Vec3(s, s, s),
+    new CANNON.Vec3(-s, -s, s),
+    new CANNON.Vec3(-s, s, -s),
+    new CANNON.Vec3(s, -s, -s),
+  ];
+
+  // Faces wound counter-clockwise when viewed from outside
+  const faces = [
+    [0, 2, 1],
+    [0, 1, 3],
+    [0, 3, 2],
+    [1, 2, 3],
+  ];
+
+  return new CANNON.ConvexPolyhedron({ vertices, faces });
 }
 
 export function applyRandomRollForce(body: CANNON.Body): void {
