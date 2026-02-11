@@ -43,6 +43,15 @@ describe('DiceConfig', () => {
     expect(getMaxValue('d100')).toBe(100);
   });
 
+  it('d8 opposite faces sum to 9 (standard d8 convention)', () => {
+    const values = DICE_CONFIGS.d8.faceValues;
+    // Three.js OctahedronGeometry opposite face pairs: (0,5), (1,4), (2,7), (3,6)
+    const oppositePairs: [number, number][] = [[0, 5], [1, 4], [2, 7], [3, 6]];
+    for (const [a, b] of oppositePairs) {
+      expect(values[a] + values[b]).toBe(9);
+    }
+  });
+
   it('dice with smaller faces have smaller fontScale', () => {
     // d20 has the smallest faces (20 triangles), needs smallest text
     // d6 has large square faces, can have larger text

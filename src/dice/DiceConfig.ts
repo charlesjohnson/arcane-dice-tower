@@ -38,7 +38,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     label: 'D8',
     mass: 3.5,
     radius: 0.55,
-    faceValues: [1, 2, 3, 4, 5, 6, 7, 8],
+    faceValues: [8, 6, 7, 4, 3, 1, 5, 2],
     fontScale: 0.3,
   },
   d10: {
