@@ -9,8 +9,8 @@ interface CameraKeyframe {
 
 export class CameraDirector {
   private camera: THREE.PerspectiveCamera;
-  private idlePosition = new THREE.Vector3(0, 7, 16);
-  private idleLookAt = new THREE.Vector3(0, 4, 0);
+  private idlePosition = new THREE.Vector3(0, 6, 14);
+  private idleLookAt = new THREE.Vector3(0, 3.5, 0);
   private keyframes: CameraKeyframe[] = [];
   private progress = 0;
   private duration = 0;

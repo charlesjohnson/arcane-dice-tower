@@ -11,11 +11,11 @@ describe('CameraDirector', () => {
     it('sets idle position further back to show full tower', () => {
       const camera = makeCamera();
       const director = new CameraDirector(camera);
-      // Idle Z should be >= 16 (pulled back from original 12)
+      // Idle Z should be >= 14 (pulled back from original 12)
       director.returnToIdle();
       // Advance to completion
       director.update(2.0);
-      expect(camera.position.z).toBeGreaterThanOrEqual(16);
+      expect(camera.position.z).toBeGreaterThanOrEqual(14);
     });
 
     it('sets idle Y higher to see tower top', () => {
@@ -23,7 +23,7 @@ describe('CameraDirector', () => {
       const director = new CameraDirector(camera);
       director.returnToIdle();
       director.update(2.0);
-      expect(camera.position.y).toBeGreaterThanOrEqual(7);
+      expect(camera.position.y).toBeGreaterThanOrEqual(6);
     });
   });
 
