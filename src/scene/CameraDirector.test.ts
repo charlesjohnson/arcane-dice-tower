@@ -16,6 +16,27 @@ describe('CameraDirector', () => {
       expect(camera.position.z).toBeGreaterThanOrEqual(14);
       expect(camera.position.y).toBeGreaterThanOrEqual(6);
     });
+
+    it('returns to idle position after tracking and return cycle', () => {
+      const camera = makeCamera();
+      camera.position.set(0, 6, 14);
+      camera.lookAt(0, 2.0, 0);
+      const director = new CameraDirector(camera);
+
+      director.startTracking(0.1);
+      director.update(0.1, [{ x: 0, y: 3, z: 0 }]);
+      director.returnToIdle();
+
+      // Advance past return duration (1.5s)
+      for (let i = 0; i < 120; i++) {
+        director.update(1 / 60, []);
+      }
+
+      // Camera should be back at idle position
+      expect(camera.position.x).toBeCloseTo(0, 1);
+      expect(camera.position.y).toBeCloseTo(6, 1);
+      expect(camera.position.z).toBeCloseTo(14, 1);
+    });
   });
 
   describe('dice tracking', () => {
