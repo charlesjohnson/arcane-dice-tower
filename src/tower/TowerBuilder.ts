@@ -5,7 +5,7 @@ import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { DICE_MATERIAL } from '../dice/DiceBody';
 import { enableBaffleSpin } from '../physics/BaffleSpin';
 
-const TOWER_HEIGHT = 8;
+const TOWER_HEIGHT = 10;
 const TOWER_RADIUS = 2.0;
 const TRAY_WIDTH = 4;
 const TRAY_DEPTH = 2.5;
@@ -325,6 +325,6 @@ export function buildTower(
     runeGlowMeshes,
     interiorLights,
     trayFloorY,
-    dropPosition: new THREE.Vector3(0, TOWER_HEIGHT + 1, 0),
+    dropPosition: new THREE.Vector3(0, TOWER_HEIGHT - 1.5, 0),
   };
 }
