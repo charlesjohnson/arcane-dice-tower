@@ -17,8 +17,19 @@ import type { RollResult } from './roll/RollOrchestrator.ts';
 import type { Preset } from './ui/PresetsPanel.ts';
 
 // --- Initialize core systems ---
-const canvas = document.getElementById('scene') as HTMLCanvasElement;
-const sceneManager = new SceneManager(canvas);
+const canvas = document.getElementById('scene');
+if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
+  document.body.textContent = 'Canvas element not found. Please reload the page.';
+  throw new Error('Missing #scene canvas');
+}
+
+let sceneManager: SceneManager;
+try {
+  sceneManager = new SceneManager(canvas);
+} catch (e) {
+  document.body.textContent = 'WebGL is not supported in this browser.';
+  throw e;
+}
 const physics = new PhysicsWorld();
 const tower = buildTower(sceneManager.scene, physics);
 const orchestrator = new RollOrchestrator(sceneManager.scene, physics, tower);
@@ -110,16 +121,25 @@ orchestrator.onStateChange((state: string, result: RollResult | null) => {
 
 // --- Wire presets ---
 presetsPanel.onPresetSelected((preset: Preset) => {
-  diceSelector.clear();
-  const dice: DiceType[] = [];
+  const selection = new Map<DiceType, number>();
   for (const [type, count] of Object.entries(preset.dice)) {
-    for (let i = 0; i < (count || 0); i++) {
-      dice.push(type as DiceType);
-    }
+    if (count && count > 0) selection.set(type as DiceType, count);
   }
+  diceSelector.setSelection(selection);
+  const dice = diceSelector.getSelectedDice();
   if (dice.length > 0) {
     ensureAudio();
     orchestrator.roll(dice);
+  }
+});
+
+presetsPanel.onSaveRequested((name: string) => {
+  const dice: Partial<Record<DiceType, number>> = {};
+  for (const [type, count] of diceSelector.getSelection()) {
+    if (count > 0) dice[type] = count;
+  }
+  if (Object.keys(dice).length > 0) {
+    presetsPanel.addPreset(name, dice);
   }
 });
 
@@ -128,7 +148,7 @@ let elapsed = 0;
 
 function animate(): void {
   requestAnimationFrame(animate);
-  const delta = sceneManager.getDelta();
+  const delta = Math.min(sceneManager.getDelta(), 0.1);
   elapsed += delta;
 
   physics.step(delta);

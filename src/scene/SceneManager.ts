@@ -32,6 +32,7 @@ export class SceneManager {
     this.renderer.toneMappingExposure = 1.4;
 
     this.setupLighting();
+    this.applyFov();
     this.setupResizeHandler();
   }
 
@@ -59,19 +60,16 @@ export class SceneManager {
     this.scene.add(frontLight);
   }
 
+  private applyFov(): void {
+    const aspect = window.innerWidth / window.innerHeight;
+    this.camera.aspect = aspect;
+    this.camera.fov = aspect < 1 ? 65 : 50;
+    this.camera.updateProjectionMatrix();
+  }
+
   private setupResizeHandler(): void {
     window.addEventListener('resize', () => {
-      const aspect = window.innerWidth / window.innerHeight;
-      this.camera.aspect = aspect;
-
-      // Widen FOV in portrait mode so tower and tray are visible
-      if (aspect < 1) {
-        this.camera.fov = 65;
-      } else {
-        this.camera.fov = 50;
-      }
-
-      this.camera.updateProjectionMatrix();
+      this.applyFov();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
   }

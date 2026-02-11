@@ -13,10 +13,17 @@ export class DiceSelector {
   private summary: HTMLDivElement;
   private clearAllBtn!: HTMLButtonElement;
   private selection = new Map<DiceType, number>();
-  private miniRenderers: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; mesh: THREE.Mesh }[] = [];
+  private sharedRenderer: THREE.WebGLRenderer;
+  private miniDice: { canvas: HTMLCanvasElement; scene: THREE.Scene; camera: THREE.PerspectiveCamera; mesh: THREE.Mesh }[] = [];
   private listeners: DiceSelectionChangeListener[] = [];
 
   constructor(uiRoot: HTMLElement) {
+    // Single shared WebGL renderer for all mini-dice previews
+    const offscreen = document.createElement('canvas');
+    this.sharedRenderer = new THREE.WebGLRenderer({ canvas: offscreen, alpha: true, antialias: true, preserveDrawingBuffer: true });
+    this.sharedRenderer.setSize(72, 72);
+    this.sharedRenderer.setPixelRatio(2);
+
     this.summary = document.createElement('div');
     this.summary.className = 'roll-summary';
     uiRoot.appendChild(this.summary);
@@ -46,6 +53,10 @@ export class DiceSelector {
     this.listeners.push(listener);
   }
 
+  getSelection(): Map<DiceType, number> {
+    return new Map(this.selection);
+  }
+
   getSelectedDice(): DiceType[] {
     const result: DiceType[] = [];
     for (const [type, count] of this.selection) {
@@ -70,8 +81,10 @@ export class DiceSelector {
     btn.className = 'dice-btn';
 
     const miniCanvas = document.createElement('canvas');
-    miniCanvas.width = 72;
-    miniCanvas.height = 72;
+    miniCanvas.width = 144;
+    miniCanvas.height = 144;
+    miniCanvas.style.width = '72px';
+    miniCanvas.style.height = '72px';
     btn.appendChild(miniCanvas);
 
     const label = document.createElement('span');
@@ -99,10 +112,6 @@ export class DiceSelector {
       }
     });
 
-    const renderer = new THREE.WebGLRenderer({ canvas: miniCanvas, alpha: true, antialias: true });
-    renderer.setSize(72, 72);
-    renderer.setPixelRatio(2);
-
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 10);
     camera.position.set(0, 0, 2.5);
@@ -123,7 +132,7 @@ export class DiceSelector {
     const mesh = new THREE.Mesh(geo, mat);
     scene.add(mesh);
 
-    this.miniRenderers.push({ renderer, scene, camera, mesh });
+    this.miniDice.push({ canvas: miniCanvas, scene, camera, mesh });
 
     btn.addEventListener('click', () => {
       const current = this.selection.get(type) || 0;
@@ -177,11 +186,15 @@ export class DiceSelector {
   }
 
   updateMiniDice(time: number): void {
-    for (const { renderer, scene, camera, mesh } of this.miniRenderers) {
+    for (const { canvas, scene, camera, mesh } of this.miniDice) {
       mesh.rotation.x = time * 0.5;
       mesh.rotation.y = time * 0.7;
       mesh.position.y = Math.sin(time * 2) * 0.05;
-      renderer.render(scene, camera);
+      this.sharedRenderer.render(scene, camera);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(this.sharedRenderer.domElement, 0, 0);
+      }
     }
   }
 }

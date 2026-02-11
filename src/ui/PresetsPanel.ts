@@ -36,6 +36,7 @@ export class PresetsPanel {
   private store: PresetStore;
   private isOpen = false;
   private listeners: PresetSelectedListener[] = [];
+  private saveListeners: ((name: string) => void)[] = [];
 
   constructor(uiRoot: HTMLElement) {
     this.store = new PresetStore();
@@ -69,11 +70,30 @@ export class PresetsPanel {
     this.list = document.createElement('div');
     this.panel.appendChild(this.list);
 
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save Current Roll';
+    saveBtn.style.cssText = `
+      width: 100%; padding: 10px; margin-top: 12px; border-radius: 8px;
+      background: rgba(136,85,255,0.2); border: 1px solid rgba(136,85,255,0.4);
+      color: #bb99ff; font-size: 14px; cursor: pointer;
+    `;
+    saveBtn.addEventListener('click', () => {
+      const name = prompt('Preset name:');
+      if (name && name.trim()) {
+        for (const l of this.saveListeners) l(name.trim());
+      }
+    });
+    this.panel.appendChild(saveBtn);
+
     this.renderPresets();
   }
 
   onPresetSelected(listener: PresetSelectedListener): void {
     this.listeners.push(listener);
+  }
+
+  onSaveRequested(listener: (name: string) => void): void {
+    this.saveListeners.push(listener);
   }
 
   addPreset(name: string, dice: Partial<Record<DiceType, number>>): void {
@@ -87,7 +107,7 @@ export class PresetsPanel {
   }
 
   private renderPresets(): void {
-    this.list.innerHTML = '';
+    this.list.replaceChildren();
     for (const preset of this.store.getAll()) {
       const item = document.createElement('div');
       item.style.cssText = `
@@ -100,8 +120,14 @@ export class PresetsPanel {
       item.addEventListener('mouseleave', () => { item.style.background = 'rgba(136,85,255,0.1)'; });
 
       const info = document.createElement('div');
-      info.innerHTML = `<div style="color:#e0d8c8;font-weight:bold">${preset.name}</div>
-        <div style="color:#8877aa;font-size:12px">${this.formatDice(preset.dice)}</div>`;
+      const nameEl = document.createElement('div');
+      nameEl.style.cssText = 'color:#e0d8c8;font-weight:bold';
+      nameEl.textContent = preset.name;
+      info.appendChild(nameEl);
+      const diceEl = document.createElement('div');
+      diceEl.style.cssText = 'color:#8877aa;font-size:12px';
+      diceEl.textContent = this.formatDice(preset.dice);
+      info.appendChild(diceEl);
       item.appendChild(info);
 
       const del = document.createElement('button');

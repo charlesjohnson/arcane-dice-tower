@@ -10,6 +10,8 @@ interface Particle {
   color: THREE.Color;
 }
 
+const _scratch = new THREE.Vector3();
+
 export class ParticleSystem {
   private particles: Particle[] = [];
   private geometry: THREE.BufferGeometry;
@@ -79,7 +81,7 @@ export class ParticleSystem {
     this.particles = this.particles.filter((p) => {
       p.life -= delta;
       if (p.life <= 0) return false;
-      p.position.add(p.velocity.clone().multiplyScalar(delta));
+      p.position.add(_scratch.copy(p.velocity).multiplyScalar(delta));
       p.velocity.y -= 2 * delta; // gentle gravity
       return true;
     });

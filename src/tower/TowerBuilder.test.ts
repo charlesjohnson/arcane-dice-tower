@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { buildTower } from './TowerBuilder';
-import { createDiceBody } from '../dice/DiceBody';
+import { createDiceBody, DICE_MATERIAL } from '../dice/DiceBody';
 import type { DiceType } from '../dice/DiceConfig';
 import { DICE_CONFIGS } from '../dice/DiceConfig';
 
