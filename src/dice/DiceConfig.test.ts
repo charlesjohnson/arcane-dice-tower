@@ -44,6 +44,34 @@ describe('DiceConfig', () => {
     expect(getMaxValue('d100')).toBe(100);
   });
 
+  it('d6 faceValues maps opposite BoxGeometry faces to sum to 7', () => {
+    // Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z (indices 0-5)
+    // Standard D6: opposite faces sum to 7 (1↔6, 2↔5, 3↔4)
+    const vals = DICE_CONFIGS.d6.faceValues;
+    expect(vals).toHaveLength(6);
+    // +X (index 0) + -X (index 1) = 7
+    expect(vals[0] + vals[1]).toBe(7);
+    // +Y (index 2) + -Y (index 3) = 7
+    expect(vals[2] + vals[3]).toBe(7);
+    // +Z (index 4) + -Z (index 5) = 7
+    expect(vals[4] + vals[5]).toBe(7);
+  });
+
+  it('d6 faceValues matches standard die net layout', () => {
+    // From the standard unrolled D6 cross pattern:
+    //        [1]         <- back (-Z, index 5)
+    //        [2]         <- top  (+Y, index 2)
+    //   [3]  [6]  [4]   <- left (-X, index 1), front (+Z, index 4), right (+X, index 0)
+    //        [5]         <- bottom (-Y, index 3)
+    const vals = DICE_CONFIGS.d6.faceValues;
+    expect(vals[0]).toBe(4);  // +X = right = 4
+    expect(vals[1]).toBe(3);  // -X = left  = 3
+    expect(vals[2]).toBe(2);  // +Y = top   = 2
+    expect(vals[3]).toBe(5);  // -Y = bottom = 5
+    expect(vals[4]).toBe(6);  // +Z = front = 6
+    expect(vals[5]).toBe(1);  // -Z = back  = 1
+  });
+
   it('d12 opposite faces sum to 13 (standard D12 convention)', () => {
     // Compute face normals from DodecahedronGeometry to determine which faces are opposite
     const geom = new THREE.DodecahedronGeometry(DICE_CONFIGS.d12.radius);
