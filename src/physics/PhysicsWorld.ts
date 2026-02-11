@@ -1,7 +1,9 @@
 import * as CANNON from 'cannon-es';
+import { GSSolver } from 'cannon-es';
 
 const VELOCITY_THRESHOLD = 0.05;
 const ANGULAR_VELOCITY_THRESHOLD = 0.1;
+const SOLVER_ITERATIONS = 10;
 
 export class PhysicsWorld {
   readonly world: CANNON.World;
@@ -15,6 +17,9 @@ export class PhysicsWorld {
     this.world.allowSleep = true;
     this.world.defaultContactMaterial.friction = 0.3;
     this.world.defaultContactMaterial.restitution = 0.3;
+    const solver = new GSSolver();
+    solver.iterations = SOLVER_ITERATIONS;
+    this.world.solver = solver;
   }
 
   addDynamicBody(body: CANNON.Body): void {
