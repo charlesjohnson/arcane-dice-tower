@@ -35,7 +35,7 @@ describe('Dice spawn position clamping', () => {
         for (let i = 0; i < total; i++) {
           const body = createDiceBody('d20');
           const offsetX = computeSpawnOffsetX(i, total);
-          body.position.set(offsetX, 9, 0);
+          body.position.set(offsetX, 8.5, 0);
           applyRandomRollForce(body);
 
           expect(Math.abs(body.position.x)).toBeLessThan(
@@ -50,7 +50,7 @@ describe('Dice spawn position clamping', () => {
 function createOrchestrator() {
   const physics = new PhysicsWorld();
   const scene = new THREE.Scene();
-  const tower = { dropPosition: { x: 0, y: 9, z: 0 } } as Tower;
+  const tower = { dropPosition: { x: 0, y: 8.5, z: 0 } } as Tower;
   const orchestrator = new RollOrchestrator(scene, physics, tower);
   return { orchestrator, scene, physics };
 }

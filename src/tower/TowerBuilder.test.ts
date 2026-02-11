@@ -12,6 +12,43 @@ const COLLISION_WALL_HALF = 0.5;
 const MAX_DIE_DIAMETER = 1.2; // largest die radius (0.6) × 2
 const MIN_DIE_RADIUS = 0.5; // smallest die (d4)
 
+describe('Tower height and spawn position', () => {
+  it('tower is 15% taller than original 8-unit height', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    const tower = buildTower(scene, physics);
+
+    // Back wall height reveals TOWER_HEIGHT (wall is centered at TOWER_HEIGHT/2)
+    const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
+    const backWall = bodies.find((b: CANNON.Body) =>
+      Math.abs(b.position.z - (-TOWER_RADIUS)) < 0.2 && b.position.y > 2
+    )!;
+    const shape = backWall.shapes[0] as CANNON.Box;
+    const wallHeight = shape.halfExtents.y * 2;
+
+    expect(wallHeight).toBeCloseTo(10, 1);
+  });
+
+  it('drop position is inside the tower, not above it', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    const tower = buildTower(scene, physics);
+
+    // Back wall top = position.y + halfExtent.y
+    const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
+    const backWall = bodies.find((b: CANNON.Body) =>
+      Math.abs(b.position.z - (-TOWER_RADIUS)) < 0.2 && b.position.y > 2
+    )!;
+    const shape = backWall.shapes[0] as CANNON.Box;
+    const wallTop = backWall.position.y + shape.halfExtents.y;
+
+    expect(
+      tower.dropPosition.y,
+      `Drop Y=${tower.dropPosition.y} must be below wall top Y=${wallTop}`
+    ).toBeLessThan(wallTop);
+  });
+});
+
 describe('Tower interior lighting', () => {
   it('has one light under each baffle plus one above the top', () => {
     const scene = new THREE.Scene();
@@ -668,7 +705,7 @@ for (const type of E2E_DICE_TYPES) {
 
 const SETTLE_SPEED = 0.05;        // matches PhysicsWorld VELOCITY_THRESHOLD
 const SETTLE_ANG_SPEED = 0.1;     // matches PhysicsWorld ANGULAR_VELOCITY_THRESHOLD
-const SETTLE_BUDGET_STEPS = 300;  // 5 seconds at 60fps
+const SETTLE_BUDGET_STEPS = 360;  // 6 seconds at 60fps
 
 function dropAndSettle(
   type: DiceType,
@@ -736,7 +773,7 @@ for (const type of E2E_DICE_TYPES) {
 
   describe(`End-to-end: ${label} settles in the tray`, () => {
     for (const trial of settleTrials) {
-      it(`settles within 5s of tray entry: ${trial.name}`, () => {
+      it(`settles within 6s of tray entry: ${trial.name}`, () => {
         const result = dropAndSettle(type, trial.angVel, trial.offsetX);
 
         expect(
