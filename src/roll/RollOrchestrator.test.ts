@@ -147,6 +147,35 @@ describe('Batch dice rolling', () => {
     expect(capturedResult!.total).toBeLessThanOrEqual(capturedResult!.maxTotal);
   });
 
+  describe('Batch-aware position queries', () => {
+    it('getCurrentBatchPositions returns only current batch positions', () => {
+      const { orchestrator } = createOrchestrator();
+      const dice = Array(6).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      orchestrator.roll(dice);
+
+      // Only first batch (4 dice) is spawned
+      const batchPositions = orchestrator.getCurrentBatchPositions();
+      expect(batchPositions.length).toBe(4);
+    });
+
+    it('hasPendingBatches returns true when more batches remain', () => {
+      const { orchestrator } = createOrchestrator();
+      const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      orchestrator.roll(dice);
+      expect(orchestrator.hasPendingBatches()).toBe(true);
+    });
+
+    it('hasPendingBatches returns false for single-batch rolls', () => {
+      const { orchestrator } = createOrchestrator();
+      const dice = Array(3).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+      orchestrator.roll(dice);
+      expect(orchestrator.hasPendingBatches()).toBe(false);
+    });
+  });
+
   it('resets settle timer between batches', () => {
     const { orchestrator, scene, physics } = createOrchestrator();
     const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];

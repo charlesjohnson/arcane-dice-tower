@@ -83,6 +83,18 @@ export class RollOrchestrator {
     }));
   }
 
+  getCurrentBatchPositions(): { x: number; y: number; z: number }[] {
+    return this.currentBatchBodies.map(body => ({
+      x: body.position.x,
+      y: body.position.y,
+      z: body.position.z,
+    }));
+  }
+
+  hasPendingBatches(): boolean {
+    return this.pendingBatches.length > 0;
+  }
+
   roll(diceList: DiceType[]): void {
     this.clearDice();
     this.settleTimer = 0;
