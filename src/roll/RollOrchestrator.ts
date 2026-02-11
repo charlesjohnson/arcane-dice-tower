@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { DiceType } from '../dice/DiceConfig';
-import { DICE_CONFIGS } from '../dice/DiceConfig';
+import { DICE_CONFIGS, getMaxValue } from '../dice/DiceConfig';
 import { createDiceGeometry } from '../dice/DiceGeometry';
 import { createDiceMaterial } from '../dice/DiceMaterial';
 import { createDiceBody, applyRandomRollForce } from '../dice/DiceBody';
@@ -22,6 +22,7 @@ export type RollState = 'idle' | 'rolling' | 'settled';
 export interface RollResult {
   dice: { type: DiceType; value: number }[];
   total: number;
+  maxTotal: number;
 }
 
 type StateChangeListener = (state: RollState, result: RollResult | null) => void;
@@ -210,7 +211,8 @@ export class RollOrchestrator {
     }
 
     const total = results.reduce((sum, d) => sum + d.value, 0);
-    return { dice: results, total };
+    const maxTotal = results.reduce((sum, d) => sum + getMaxValue(d.type), 0);
+    return { dice: results, total, maxTotal };
   }
 
   private extractFaceNormals(

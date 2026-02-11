@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DICE_CONFIGS } from './DiceConfig';
+import { DICE_CONFIGS, getMaxValue } from './DiceConfig';
 import type { DiceType } from './DiceConfig';
 
 describe('DiceConfig', () => {
@@ -31,6 +31,16 @@ describe('DiceConfig', () => {
       expect(cfg.mass).toBeGreaterThan(0);
       expect(cfg.radius).toBeGreaterThan(0);
     }
+  });
+
+  it('getMaxValue returns correct max for each die type', () => {
+    expect(getMaxValue('d4')).toBe(4);
+    expect(getMaxValue('d6')).toBe(6);
+    expect(getMaxValue('d8')).toBe(8);
+    expect(getMaxValue('d10')).toBe(9);
+    expect(getMaxValue('d12')).toBe(12);
+    expect(getMaxValue('d20')).toBe(20);
+    expect(getMaxValue('d100')).toBe(100);
   });
 
   it('dice with smaller faces have smaller fontScale', () => {

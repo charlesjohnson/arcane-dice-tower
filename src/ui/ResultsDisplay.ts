@@ -33,7 +33,7 @@ export class ResultsDisplay {
 
     const total = document.createElement('div');
     total.className = 'result-total';
-    total.textContent = `= ${result.total}`;
+    total.textContent = `= ${result.total}/${result.maxTotal}`;
     this.container.appendChild(total);
 
     this.container.classList.add('visible');
