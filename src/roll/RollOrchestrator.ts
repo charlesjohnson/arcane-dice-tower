@@ -56,6 +56,8 @@ export class RollOrchestrator {
   private accumulatedSubtotal = 0;
   private accumulatedMaxTotal = 0;
   private accumulatedDice: { type: DiceType; value: number }[] = [];
+  private batchReadyListeners: (() => void)[] = [];
+  private waitingForNextBatch = false;
 
   constructor(scene: THREE.Scene, physics: PhysicsWorld, tower: Tower) {
     this.scene = scene;
@@ -69,6 +71,10 @@ export class RollOrchestrator {
 
   onSubtotalUpdate(listener: SubtotalListener): void {
     this.subtotalListeners.push(listener);
+  }
+
+  onBatchReady(listener: () => void): void {
+    this.batchReadyListeners.push(listener);
   }
 
   getState(): RollState {
@@ -103,6 +109,7 @@ export class RollOrchestrator {
     this.accumulatedSubtotal = 0;
     this.accumulatedMaxTotal = 0;
     this.accumulatedDice = [];
+    this.waitingForNextBatch = false;
     this.setState('rolling', null);
 
     // Expand D100 into two D10 bodies (tens + units)
@@ -124,9 +131,14 @@ export class RollOrchestrator {
     this.spawnNextBatch();
   }
 
-  private spawnNextBatch(): void {
-    const batch = this.pendingBatches.shift();
-    if (!batch) return;
+  spawnNextBatch(): void {
+    this.waitingForNextBatch = false;
+    const next = this.pendingBatches[0];
+    if (!next) return;
+    if (this.dice.length + next.length > MAX_TRAY_DICE) {
+      this.clearTrayWithSubtotal();
+    }
+    const batch = this.pendingBatches.shift()!;
 
     this.currentBatchBodies = [];
     this.settleTimer = 0;
@@ -173,6 +185,7 @@ export class RollOrchestrator {
     }
 
     if (this.state !== 'rolling') return;
+    if (this.waitingForNextBatch) return;
 
     this.settleTimer += delta;
 
@@ -180,11 +193,8 @@ export class RollOrchestrator {
 
     if (this.areCurrentBatchSettled()) {
       if (this.pendingBatches.length > 0) {
-        const nextBatchSize = this.pendingBatches[0].length;
-        if (this.dice.length + nextBatchSize > MAX_TRAY_DICE) {
-          this.clearTrayWithSubtotal();
-        }
-        this.spawnNextBatch();
+        this.waitingForNextBatch = true;
+        for (const listener of this.batchReadyListeners) listener();
       } else {
         const result = this.readResults();
         // Include accumulated subtotal from cleared batches
