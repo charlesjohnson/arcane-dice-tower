@@ -1,4 +1,5 @@
 import './style.css';
+import * as THREE from 'three';
 import { SceneManager } from './scene/SceneManager.ts';
 import { CameraDirector } from './scene/CameraDirector.ts';
 import { PhysicsWorld } from './physics/PhysicsWorld.ts';
@@ -49,6 +50,7 @@ const diceViewer = new DiceViewer(uiRoot);
 
 // --- Wire dice viewer keyboard shortcut ---
 window.addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
   diceViewer.handleKey(e.key);
 });
 
@@ -62,7 +64,6 @@ function ensureAudio(): void {
 }
 
 // --- Wire baffle impact effects and audio via collision events ---
-import * as THREE from 'three';
 
 for (const baffleBody of tower.baffleBodies) {
   baffleBody.addEventListener('collide', (event: { contact: { ri: { x: number; y: number; z: number } } }) => {

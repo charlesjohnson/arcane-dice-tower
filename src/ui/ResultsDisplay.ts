@@ -12,7 +12,7 @@ export class ResultsDisplay {
   }
 
   show(result: RollResult): void {
-    this.container.innerHTML = '';
+    this.container.replaceChildren();
 
     for (const die of result.dice) {
       const item = document.createElement('div');
@@ -41,7 +41,7 @@ export class ResultsDisplay {
   }
 
   showRunningTotal(subtotal: number): void {
-    this.container.innerHTML = '';
+    this.container.replaceChildren();
 
     const total = document.createElement('div');
     total.className = 'result-total';

@@ -1,5 +1,10 @@
-import type { Body, IBodyEvent } from 'cannon-es';
+import type { Body } from 'cannon-es';
 import { Vec3 } from 'cannon-es';
+
+interface CollideEvent {
+  type: string;
+  body: Body;
+}
 
 const MIN_IMPULSE = 1;
 const MAX_IMPULSE = 3;
@@ -12,7 +17,7 @@ const SPIN_THRESHOLD = 3;
  */
 export function enableBaffleSpin(baffleBodies: Body[]): void {
   for (const baffle of baffleBodies) {
-    baffle.addEventListener('collide', (event: IBodyEvent) => {
+    baffle.addEventListener('collide', (event: CollideEvent) => {
       const diceBody = event.body;
       if (!diceBody || diceBody.mass === 0) return;
 

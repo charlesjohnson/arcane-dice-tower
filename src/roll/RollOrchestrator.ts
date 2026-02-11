@@ -81,14 +81,6 @@ export class RollOrchestrator {
     return this.state;
   }
 
-  getDicePositions(): { x: number; y: number; z: number }[] {
-    return this.dice.map(die => ({
-      x: die.body.position.x,
-      y: die.body.position.y,
-      z: die.body.position.z,
-    }));
-  }
-
   getCurrentBatchPositions(): { x: number; y: number; z: number }[] {
     return this.currentBatchBodies.map(body => ({
       x: body.position.x,
@@ -123,9 +115,16 @@ export class RollOrchestrator {
       }
     }
 
-    // Split into batches of MAX_CONCURRENT_DICE
-    for (let i = 0; i < spawnList.length; i += MAX_CONCURRENT_DICE) {
-      this.pendingBatches.push(spawnList.slice(i, i + MAX_CONCURRENT_DICE));
+    // Split into batches of MAX_CONCURRENT_DICE, keeping D100 pairs together
+    for (let i = 0; i < spawnList.length; ) {
+      let end = Math.min(i + MAX_CONCURRENT_DICE, spawnList.length);
+      // If the last entry in this batch is a 'tens' die, pull it back
+      // so the tens/units pair stays together in the next batch.
+      if (end < spawnList.length && spawnList[end - 1].d100Role === 'tens') {
+        end--;
+      }
+      this.pendingBatches.push(spawnList.slice(i, end));
+      i = end;
     }
 
     this.spawnNextBatch();
