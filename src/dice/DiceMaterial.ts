@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { DiceType } from './DiceConfig';
-import { DICE_CONFIGS } from './DiceConfig';
+import { DICE_CONFIGS, formatFaceLabel } from './DiceConfig';
 
 const CANVAS_SIZE = 256;
 
@@ -43,7 +43,7 @@ export function createDiceMaterial(type: DiceType): THREE.Material | THREE.Mater
   // Create per-face materials with number textures for all dice types
   return config.faceValues.map((val) => {
     return new THREE.MeshStandardMaterial({
-      map: createFaceTexture(val, type),
+      map: createFaceTexture(formatFaceLabel(val, type), type),
       roughness: 0.2,
       metalness: 0.1,
       emissive: new THREE.Color(0x442266),
