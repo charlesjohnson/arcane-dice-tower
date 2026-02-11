@@ -17,7 +17,7 @@ describe('BaffleSpin', () => {
     baffleBody.dispatchEvent({
       type: 'collide',
       body: diceBody,
-    } as unknown as CANNON.IBodyEvent);
+    } as { type: string; body: CANNON.Body });
 
     const after = diceBody.angularVelocity;
     const delta = new CANNON.Vec3();
@@ -34,7 +34,7 @@ describe('BaffleSpin', () => {
     baffleBody.dispatchEvent({
       type: 'collide',
       body: wallBody,
-    } as unknown as CANNON.IBodyEvent);
+    } as { type: string; body: CANNON.Body });
 
     expect(wallBody.angularVelocity.length()).toBe(0);
   });
@@ -54,7 +54,7 @@ describe('BaffleSpin', () => {
     baffleBody.dispatchEvent({
       type: 'collide',
       body: diceBody,
-    } as unknown as CANNON.IBodyEvent);
+    } as { type: string; body: CANNON.Body });
 
     const after = diceBody.angularVelocity;
     const delta = new CANNON.Vec3();
@@ -77,7 +77,7 @@ describe('BaffleSpin', () => {
       baffleBody.dispatchEvent({
         type: 'collide',
         body: diceBody,
-      } as unknown as CANNON.IBodyEvent);
+      } as { type: string; body: CANNON.Body });
 
       magnitudes.push(diceBody.angularVelocity.length());
     }
@@ -105,7 +105,7 @@ describe('BaffleSpin', () => {
     baffleBody.dispatchEvent({
       type: 'collide',
       body: diceBody,
-    } as unknown as CANNON.IBodyEvent);
+    } as { type: string; body: CANNON.Body });
 
     expect(diceBody.angularVelocity.x).toBe(before.x);
     expect(diceBody.angularVelocity.y).toBe(before.y);

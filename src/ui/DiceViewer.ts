@@ -16,6 +16,7 @@ export class DiceViewer {
   private mesh: THREE.Mesh | null = null;
   private currentType: DiceType | null = null;
   private animationId: number | null = null;
+  private onResize = (): void => this.resize();
 
   constructor(root: HTMLElement) {
     this.overlay = document.createElement('div');
@@ -61,12 +62,14 @@ export class DiceViewer {
     this.overlay.style.display = 'flex';
 
     this.resize();
+    window.addEventListener('resize', this.onResize);
     this.startAnimation();
   }
 
   hide(): void {
     this.overlay.style.display = 'none';
     this.currentType = null;
+    window.removeEventListener('resize', this.onResize);
     this.stopAnimation();
   }
 

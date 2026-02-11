@@ -16,7 +16,7 @@ describe('Tower height and spawn position', () => {
   it('tower is 15% taller than original 8-unit height', () => {
     const scene = new THREE.Scene();
     const physics = new PhysicsWorld();
-    const tower = buildTower(scene, physics);
+    buildTower(scene, physics);
 
     // Back wall height reveals TOWER_HEIGHT (wall is centered at TOWER_HEIGHT/2)
     const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
@@ -487,27 +487,29 @@ describe('Tower baffle geometry prevents dice from getting stuck', () => {
   });
 });
 
+function findTrayWallBodies(physics: PhysicsWorld) {
+  const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
+  return bodies.filter((b: CANNON.Body) => {
+    if (b.mass !== 0) return false;
+    if (b.position.y > 2) return false;
+    if (b.position.z < TOWER_RADIUS - 0.1) return false; // must be in tray area
+    const shape = b.shapes[0] as CANNON.Box;
+    if (!shape?.halfExtents) return false;
+    // Side walls: positioned at ±TRAY_WIDTH/2 in x
+    const isSideWall = Math.abs(Math.abs(b.position.x) - 2) < 0.2;
+    // Back wall: positioned at z = TOWER_RADIUS + TRAY_DEPTH
+    const isBackWall = Math.abs(b.position.z - (TOWER_RADIUS + 2.5)) < 0.2;
+    return isSideWall || isBackWall;
+  });
+}
+
 describe('Tray wall containment', () => {
   it('has tray walls tall enough for dice to stack two high', () => {
     const scene = new THREE.Scene();
     const physics = new PhysicsWorld();
     buildTower(scene, physics);
 
-    const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
-
-    // Tray walls: left/right side walls (thin in x) and back wall (thin in z)
-    // positioned in the tray area (z > TOWER_RADIUS, y < 2)
-    const trayWallBodies = bodies.filter((b: CANNON.Body) => {
-      if (b.mass !== 0) return false;
-      if (b.position.y > 2) return false;
-      if (b.position.z < TOWER_RADIUS - 0.1) return false; // must be in tray area
-      const shape = b.shapes[0] as CANNON.Box;
-      if (!shape?.halfExtents) return false;
-      const isSideWall = shape.halfExtents.x < 0.2 && shape.halfExtents.z > 0.5;
-      const isBackWall = shape.halfExtents.z < 0.2 && shape.halfExtents.x >= 1.0;
-      return isSideWall || isBackWall;
-    });
-
+    const trayWallBodies = findTrayWallBodies(physics);
     expect(trayWallBodies.length).toBeGreaterThanOrEqual(3); // left, right, back
 
     const minWallHeight = MAX_DIE_DIAMETER * 1.2; // at least 1.2x die diameter for stacking
@@ -519,6 +521,62 @@ describe('Tray wall containment', () => {
         `Tray wall at (${wall.position.x.toFixed(1)}, ${wall.position.z.toFixed(1)}): height ${wallHeight.toFixed(2)} too short for stacking (need ≥ ${minWallHeight})`
       ).toBeGreaterThanOrEqual(minWallHeight);
     }
+  });
+
+  it('has tray wall collision bodies thick enough to prevent tunneling', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    const trayWallBodies = findTrayWallBodies(physics);
+    expect(trayWallBodies.length).toBeGreaterThanOrEqual(3);
+
+    // Side walls (left/right) need thickness in the x direction;
+    // back wall needs thickness in the z direction.
+    // Minimum 0.3 half-extent (matching tower wall approach) so the solver
+    // has enough margin when dice pile up and press against the walls.
+    for (const wall of trayWallBodies) {
+      const shape = wall.shapes[0] as CANNON.Box;
+      const isSideWall = Math.abs(Math.abs(wall.position.x) - 2) < 0.2;
+      if (isSideWall) {
+        expect(
+          shape.halfExtents.x,
+          `Side tray wall collision too thin: halfExtent.x=${shape.halfExtents.x}`
+        ).toBeGreaterThanOrEqual(0.3);
+      } else {
+        expect(
+          shape.halfExtents.z,
+          `Back tray wall collision too thin: halfExtent.z=${shape.halfExtents.z}`
+        ).toBeGreaterThanOrEqual(0.3);
+      }
+    }
+  });
+});
+
+describe('Camera-facing tray wall height', () => {
+  it('front tray wall visual mesh is short enough for camera clearance', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    // The camera-facing tray wall is the one at z = TOWER_RADIUS + TRAY_DEPTH.
+    // Find the visual mesh (not physics body) at the far end of the tray.
+    const TRAY_DEPTH = 2.5;
+    const expectedZ = TOWER_RADIUS + TRAY_DEPTH; // 4.5
+    const group = scene.children[0] as THREE.Group;
+    const backTrayMesh = group.children.find((child) => {
+      if (!(child instanceof THREE.Mesh)) return false;
+      return Math.abs(child.position.z - expectedZ) < 0.2 && child.position.y < 2;
+    }) as THREE.Mesh | undefined;
+
+    expect(backTrayMesh, 'camera-facing tray wall mesh not found').toBeTruthy();
+
+    const geo = backTrayMesh!.geometry as THREE.BoxGeometry;
+    const wallHeight = geo.parameters.height;
+    // During tracking, camera y can be as low as ~0.5 when passing through
+    // z=4.5. The visual wall top (position.y + height/2) must be below this.
+    const wallTop = backTrayMesh!.position.y + wallHeight / 2;
+    expect(wallTop, `Camera-facing wall top at y=${wallTop} is too high`).toBeLessThan(0.7);
   });
 });
 

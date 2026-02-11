@@ -230,19 +230,28 @@ export function buildTower(
   rightTrayWall.position.set(TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2);
   group.add(rightTrayWall);
 
+  // Camera-facing tray wall is shorter than the sides so the tracking
+  // camera clears over it instead of clipping through the geometry.
+  const FRONT_TRAY_WALL_HEIGHT = 0.5;
+  const frontWallCenterY = trayFloorY + FRONT_TRAY_WALL_HEIGHT / 2;
   const backTrayWall = new THREE.Mesh(
-    new THREE.BoxGeometry(TRAY_WIDTH, TRAY_WALL_HEIGHT, WALL_THICKNESS),
+    new THREE.BoxGeometry(TRAY_WIDTH, FRONT_TRAY_WALL_HEIGHT, WALL_THICKNESS),
     ivoryMaterial
   );
-  backTrayWall.position.set(0, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH);
+  backTrayWall.position.set(0, frontWallCenterY, TOWER_RADIUS + TRAY_DEPTH);
   group.add(backTrayWall);
 
   // Tray wall physics (left, right, back)
   // No front wall — the tray opening at z=TOWER_RADIUS is where dice enter from the ramp.
+  // Physics bodies are thicker than visual walls (same approach as tower walls)
+  // so the solver has enough margin when dice pile up against the walls.
+  // Uses a moderate 0.3 half-extent instead of COLLISION_WALL_HALF (0.5) to
+  // avoid narrowing the ramp-to-tray passage.
+  const TRAY_WALL_COLLISION_HALF = 0.3;
   const trayWallPositions = [
-    { pos: [-TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [WALL_THICKNESS / 2, trayWallHalfY, TRAY_DEPTH / 2] as const },
-    { pos: [TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [WALL_THICKNESS / 2, trayWallHalfY, TRAY_DEPTH / 2] as const },
-    { pos: [0, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH] as const, half: [TRAY_WIDTH / 2, trayWallHalfY, WALL_THICKNESS / 2] as const },
+    { pos: [-TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [TRAY_WALL_COLLISION_HALF, trayWallHalfY, TRAY_DEPTH / 2] as const },
+    { pos: [TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [TRAY_WALL_COLLISION_HALF, trayWallHalfY, TRAY_DEPTH / 2] as const },
+    { pos: [0, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH] as const, half: [TRAY_WIDTH / 2, trayWallHalfY, TRAY_WALL_COLLISION_HALF] as const },
   ];
   for (const tw of trayWallPositions) {
     const wallBody = new CANNON.Body({

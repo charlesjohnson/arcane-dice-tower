@@ -409,3 +409,47 @@ describe('Tray overflow clearing', () => {
     expect(subtotals.length).toBe(2);
   });
 });
+
+describe('D100 batch pairing', () => {
+  it('never splits a D100 tens/units pair across batch boundaries', () => {
+    const { orchestrator, scene } = createOrchestrator();
+    // ['d6', 'd100', 'd100'] expands to:
+    //   [d6, d100-tens, d10-units, d100-tens, d10-units]
+    // Naive slicing at index 4 puts d100-tens in batch 1 without its d10-units.
+    orchestrator.roll(['d6', 'd100', 'd100']);
+
+    // First batch should be 3 (d6 + 1 complete d100 pair),
+    // not 4 (which would orphan a tens die).
+    const firstBatchSize = scene.children.length;
+    expect(firstBatchSize).toBe(3);
+  });
+
+  it('produces correct D100 results in mixed rolls requiring batching', () => {
+    const { orchestrator, physics } = createOrchestrator();
+    let finalResult: RollResult | null = null;
+    orchestrator.onStateChange((state, result) => {
+      if (state === 'settled') finalResult = result;
+    });
+    orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
+    // Mixed roll that forces batch split within a D100 pair
+    orchestrator.roll(['d6', 'd100', 'd100']);
+
+    // Settle all batches
+    for (let i = 0; i < 5; i++) {
+      zeroAllVelocities(physics);
+      orchestrator.update(1.1);
+    }
+
+    expect(finalResult).not.toBeNull();
+    // Should have 1 d6 + 2 d100 results
+    expect(finalResult!.dice.length).toBe(3);
+    const d100Results = finalResult!.dice.filter(d => d.type === 'd100');
+    const d6Results = finalResult!.dice.filter(d => d.type === 'd6');
+    expect(d100Results.length).toBe(2);
+    expect(d6Results.length).toBe(1);
+    for (const die of d100Results) {
+      expect(die.value).toBeGreaterThanOrEqual(1);
+      expect(die.value).toBeLessThanOrEqual(100);
+    }
+  });
+});
