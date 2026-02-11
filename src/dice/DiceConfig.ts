@@ -10,6 +10,14 @@ export interface DiceConfigEntry {
   isPercentile?: boolean;
 }
 
+/** Returns the display label for a face value (zero-pads percentile dice). */
+export function formatFaceLabel(value: number, type: DiceType): string {
+  if (DICE_CONFIGS[type].isPercentile) {
+    return String(value).padStart(2, '0');
+  }
+  return String(value);
+}
+
 /** Returns the maximum possible value for a single die of the given type. */
 export function getMaxValue(type: DiceType): number {
   if (type === 'd100') return 100;
@@ -73,7 +81,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     label: 'D10',
     mass: 4,
     radius: 0.55,
-    faceValues: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    faceValues: [3, 7, 1, 9, 5, 6, 2, 8, 0, 4],
     fontScale: 0.35,
   },
   d12: {
@@ -97,7 +105,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     label: 'D100',
     mass: 4,
     radius: 0.55,
-    faceValues: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
+    faceValues: [30, 70, 10, 90, 50, 60, 20, 80, 0, 40],
     fontScale: 0.3,
     isPercentile: true,
   },
