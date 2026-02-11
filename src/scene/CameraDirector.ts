@@ -9,8 +9,8 @@ interface CameraKeyframe {
 
 export class CameraDirector {
   private camera: THREE.PerspectiveCamera;
-  private idlePosition = new THREE.Vector3(0, 5, 12);
-  private idleLookAt = new THREE.Vector3(0, 3, 0);
+  private idlePosition = new THREE.Vector3(0, 6, 14);
+  private idleLookAt = new THREE.Vector3(0, 3.5, 0);
   private keyframes: CameraKeyframe[] = [];
   private progress = 0;
   private duration = 0;
@@ -24,12 +24,13 @@ export class CameraDirector {
 
   playRollSequence(towerTopY: number, trayY: number): void {
     this.keyframes = [
-      { position: new THREE.Vector3(0, towerTopY + 2, 10), lookAt: new THREE.Vector3(0, towerTopY, 0), time: 0 },
-      { position: new THREE.Vector3(3, towerTopY * 0.6, 6), lookAt: new THREE.Vector3(0, towerTopY * 0.5, 0), time: 0.3 },
-      { position: new THREE.Vector3(2, trayY + 3, 7), lookAt: new THREE.Vector3(0, trayY + 1, 2), time: 0.6 },
+      { position: this.camera.position.clone(), lookAt: this.currentLookAt.clone(), time: 0 },
+      { position: new THREE.Vector3(0, towerTopY + 2, 10), lookAt: new THREE.Vector3(0, towerTopY, 0), time: 0.15 },
+      { position: new THREE.Vector3(3, towerTopY * 0.6, 6), lookAt: new THREE.Vector3(0, towerTopY * 0.5, 0), time: 0.35 },
+      { position: new THREE.Vector3(2, trayY + 3, 7), lookAt: new THREE.Vector3(0, trayY + 1, 2), time: 0.65 },
       { position: new THREE.Vector3(0, trayY + 4, 5), lookAt: new THREE.Vector3(0, trayY + 0.5, 2.5), time: 1.0 },
     ];
-    this.duration = 3.0;
+    this.duration = 3.5;
     this.progress = 0;
     this.active = true;
   }

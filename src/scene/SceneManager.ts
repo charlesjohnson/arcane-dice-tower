@@ -16,8 +16,8 @@ export class SceneManager {
       0.1,
       100
     );
-    this.camera.position.set(0, 5, 12);
-    this.camera.lookAt(0, 2, 0);
+    this.camera.position.set(0, 6, 14);
+    this.camera.lookAt(0, 3.5, 0);
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,

@@ -97,8 +97,7 @@ orchestrator.onStateChange((state: string, result: RollResult | null) => {
       }
     }
 
-    // Return camera to idle after delay
-    setTimeout(() => cameraDirector.returnToIdle(), 2000);
+    // Camera stays on tray for results; roll sequence handles pullback
   }
 });
 
