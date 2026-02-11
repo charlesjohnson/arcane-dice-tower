@@ -27,6 +27,7 @@ export interface RollResult {
 type StateChangeListener = (state: RollState, result: RollResult | null) => void;
 
 const SETTLE_WAIT_TIME = 1.0; // seconds to wait before checking settlement
+export const MAX_CONCURRENT_DICE = 4;
 const MAX_SPREAD_X = 1.2; // TOWER_RADIUS (2.0) - die radius (0.6) - margin (0.2)
 
 /** Compute the clamped horizontal offset for the i-th die out of total. */
@@ -34,6 +35,11 @@ export function computeSpawnOffsetX(index: number, total: number): number {
   const rawOffsetX = (index - (total - 1) / 2) * 0.8;
   return Math.max(-MAX_SPREAD_X, Math.min(MAX_SPREAD_X, rawOffsetX));
 }
+
+type SpawnEntry = { type: DiceType; d100Role?: 'tens' | 'units' };
+
+const VELOCITY_THRESHOLD = 0.05;
+const ANGULAR_VELOCITY_THRESHOLD = 0.1;
 
 export class RollOrchestrator {
   private scene: THREE.Scene;
@@ -44,6 +50,8 @@ export class RollOrchestrator {
   private state: RollState = 'idle';
   private settleTimer = 0;
   private listeners: StateChangeListener[] = [];
+  private pendingBatches: SpawnEntry[][] = [];
+  private currentBatchBodies: import('cannon-es').Body[] = [];
 
   constructor(scene: THREE.Scene, physics: PhysicsWorld, tower: Tower) {
     this.scene = scene;
@@ -70,12 +78,12 @@ export class RollOrchestrator {
   roll(diceList: DiceType[]): void {
     this.clearDice();
     this.settleTimer = 0;
+    this.pendingBatches = [];
+    this.currentBatchBodies = [];
     this.setState('rolling', null);
 
-    const dropPos = this.tower.dropPosition;
-
     // Expand D100 into two D10 bodies (tens + units)
-    const spawnList: { type: DiceType; d100Role?: 'tens' | 'units' }[] = [];
+    const spawnList: SpawnEntry[] = [];
     for (const type of diceList) {
       if (type === 'd100') {
         spawnList.push({ type: 'd100', d100Role: 'tens' });
@@ -85,17 +93,31 @@ export class RollOrchestrator {
       }
     }
 
-    for (let i = 0; i < spawnList.length; i++) {
-      const { type, d100Role } = spawnList[i];
+    // Split into batches of MAX_CONCURRENT_DICE
+    for (let i = 0; i < spawnList.length; i += MAX_CONCURRENT_DICE) {
+      this.pendingBatches.push(spawnList.slice(i, i + MAX_CONCURRENT_DICE));
+    }
+
+    this.spawnNextBatch();
+  }
+
+  private spawnNextBatch(): void {
+    const batch = this.pendingBatches.shift();
+    if (!batch) return;
+
+    this.currentBatchBodies = [];
+    this.settleTimer = 0;
+    const dropPos = this.tower.dropPosition;
+
+    for (let i = 0; i < batch.length; i++) {
+      const { type, d100Role } = batch[i];
       const geometry = createDiceGeometry(type);
       const material = createDiceMaterial(type);
       const mesh = new THREE.Mesh(geometry, material);
 
       const body = createDiceBody(type);
 
-      // Stagger dice vertically so they don't overlap, and clamp the
-      // horizontal spread to stay well inside the tower walls (±1.5).
-      const offsetX = computeSpawnOffsetX(i, spawnList.length);
+      const offsetX = computeSpawnOffsetX(i, batch.length);
       const offsetY = i * 0.5;
       body.position.set(
         dropPos.x + offsetX,
@@ -114,13 +136,9 @@ export class RollOrchestrator {
       this.scene.add(mesh);
       this.physics.addDynamicBody(body);
 
-      this.dice.push({
-        mesh,
-        body,
-        type,
-        d100Role,
-        result: null,
-      });
+      const die: DieInstance = { mesh, body, type, d100Role, result: null };
+      this.dice.push(die);
+      this.currentBatchBodies.push(body);
     }
   }
 
@@ -137,10 +155,26 @@ export class RollOrchestrator {
 
     if (this.settleTimer < SETTLE_WAIT_TIME) return;
 
-    if (this.physics.areBodiesSettled()) {
-      const result = this.readResults();
-      this.setState('settled', result);
+    if (this.areCurrentBatchSettled()) {
+      if (this.pendingBatches.length > 0) {
+        this.spawnNextBatch();
+      } else {
+        const result = this.readResults();
+        this.setState('settled', result);
+      }
     }
+  }
+
+  private areCurrentBatchSettled(): boolean {
+    if (this.currentBatchBodies.length === 0) return true;
+    return this.currentBatchBodies.every((body) => {
+      const v = body.velocity;
+      const w = body.angularVelocity;
+      return (
+        v.length() < VELOCITY_THRESHOLD &&
+        w.length() < ANGULAR_VELOCITY_THRESHOLD
+      );
+    });
   }
 
   private readResults(): RollResult {

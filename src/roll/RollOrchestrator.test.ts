@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'vitest';
-import { computeSpawnOffsetX } from './RollOrchestrator';
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest';
+import * as THREE from 'three';
+import { computeSpawnOffsetX, RollOrchestrator, MAX_CONCURRENT_DICE } from './RollOrchestrator';
+import type { RollResult } from './RollOrchestrator';
 import { createDiceBody, applyRandomRollForce } from '../dice/DiceBody';
+import { PhysicsWorld } from '../physics/PhysicsWorld';
+import type { Tower } from '../tower/TowerBuilder';
+
+vi.mock('../dice/DiceMaterial', () => ({
+  createDiceMaterial: () => new THREE.MeshStandardMaterial(),
+}));
 
 const TOWER_RADIUS = 2.0;
 
@@ -35,5 +44,108 @@ describe('Dice spawn position clamping', () => {
         }
       }
     }
+  });
+});
+
+function createOrchestrator() {
+  const physics = new PhysicsWorld();
+  const scene = new THREE.Scene();
+  const tower = { dropPosition: { x: 0, y: 9, z: 0 } } as Tower;
+  const orchestrator = new RollOrchestrator(scene, physics, tower);
+  return { orchestrator, scene, physics };
+}
+
+function zeroAllVelocities(physics: PhysicsWorld) {
+  for (const body of physics.world.bodies) {
+    body.velocity.setZero();
+    body.angularVelocity.setZero();
+  }
+}
+
+describe('Batch dice rolling', () => {
+  it('exports MAX_CONCURRENT_DICE as 4', () => {
+    expect(MAX_CONCURRENT_DICE).toBe(4);
+  });
+
+  it('spawns only the first batch when rolling more than MAX_CONCURRENT_DICE', () => {
+    const { orchestrator, scene } = createOrchestrator();
+    const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    orchestrator.roll(dice);
+
+    // Only first batch of 4 should be spawned
+    expect(scene.children.length).toBe(MAX_CONCURRENT_DICE);
+    expect(orchestrator.getState()).toBe('rolling');
+  });
+
+  it('spawns all dice immediately when at or below MAX_CONCURRENT_DICE', () => {
+    const { orchestrator, scene } = createOrchestrator();
+    const dice = Array(3).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    orchestrator.roll(dice);
+
+    expect(scene.children.length).toBe(3);
+  });
+
+  it('spawns next batch after first batch settles, stays rolling', () => {
+    const { orchestrator, scene, physics } = createOrchestrator();
+    const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    orchestrator.roll(dice);
+    expect(scene.children.length).toBe(4);
+
+    // Settle the first batch
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    // Second batch should now be spawned (8 total in scene)
+    expect(scene.children.length).toBe(8);
+    // State should still be rolling (more dice to process)
+    expect(orchestrator.getState()).toBe('rolling');
+  });
+
+  it('transitions to settled after final batch settles with all results', () => {
+    const { orchestrator, physics } = createOrchestrator();
+    const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    let capturedResult: RollResult | null = null;
+    orchestrator.onStateChange((state, result) => {
+      if (state === 'settled') capturedResult = result;
+    });
+
+    orchestrator.roll(dice);
+
+    // Settle first batch
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    // Settle second batch
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    expect(orchestrator.getState()).toBe('settled');
+    expect(capturedResult).not.toBeNull();
+    expect(capturedResult!.dice.length).toBe(8);
+  });
+
+  it('resets settle timer between batches', () => {
+    const { orchestrator, scene, physics } = createOrchestrator();
+    const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    orchestrator.roll(dice);
+
+    // Settle first batch
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+    expect(scene.children.length).toBe(8);
+
+    // Call update with small delta - should NOT settle yet (timer was reset)
+    zeroAllVelocities(physics);
+    orchestrator.update(0.5);
+    expect(orchestrator.getState()).toBe('rolling');
+
+    // After enough time passes, should settle
+    orchestrator.update(0.6);
+    expect(orchestrator.getState()).toBe('settled');
   });
 });
