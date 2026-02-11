@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { DICE_MATERIAL } from '../dice/DiceBody';
+import { enableBaffleSpin } from '../physics/BaffleSpin';
 
 const TOWER_HEIGHT = 8;
 const TOWER_RADIUS = 2.0;
@@ -311,6 +312,8 @@ export function buildTower(
     group.add(light);
     interiorLights.push(light);
   }
+
+  enableBaffleSpin(baffleBodies);
 
   scene.add(group);
 
