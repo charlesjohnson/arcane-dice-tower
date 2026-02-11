@@ -5,7 +5,7 @@ import { createDiceGeometry } from '../dice/DiceGeometry';
 import { createDiceMaterial } from '../dice/DiceMaterial';
 import { createDiceBody, applyRandomRollForce } from '../dice/DiceBody';
 import { findUpwardFaceIndex } from '../dice/DiceResult';
-import { PhysicsWorld } from '../physics/PhysicsWorld';
+import { PhysicsWorld, VELOCITY_THRESHOLD, ANGULAR_VELOCITY_THRESHOLD } from '../physics/PhysicsWorld';
 import type { Tower } from '../tower/TowerBuilder';
 
 export interface DieInstance {
@@ -37,9 +37,6 @@ export function computeSpawnOffsetX(index: number, total: number): number {
 }
 
 type SpawnEntry = { type: DiceType; d100Role?: 'tens' | 'units' };
-
-const VELOCITY_THRESHOLD = 0.05;
-const ANGULAR_VELOCITY_THRESHOLD = 0.1;
 
 export class RollOrchestrator {
   private scene: THREE.Scene;
@@ -127,8 +124,8 @@ export class RollOrchestrator {
 
       applyRandomRollForce(body);
 
-      mesh.position.copy(body.position as unknown as THREE.Vector3);
-      mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion);
+      mesh.position.set(body.position.x, body.position.y, body.position.z);
+      mesh.quaternion.set(body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w);
 
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -145,8 +142,8 @@ export class RollOrchestrator {
   update(delta: number): void {
     // Sync Three.js meshes to Cannon-es body positions
     for (const die of this.dice) {
-      die.mesh.position.copy(die.body.position as unknown as THREE.Vector3);
-      die.mesh.quaternion.copy(die.body.quaternion as unknown as THREE.Quaternion);
+      die.mesh.position.set(die.body.position.x, die.body.position.y, die.body.position.z);
+      die.mesh.quaternion.set(die.body.quaternion.x, die.body.quaternion.y, die.body.quaternion.z, die.body.quaternion.w);
     }
 
     if (this.state !== 'rolling') return;

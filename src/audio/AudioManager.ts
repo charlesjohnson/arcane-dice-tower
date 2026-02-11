@@ -81,7 +81,11 @@ export class AudioManager {
     osc.stop(ctx.currentTime + 0.8);
   }
 
+  private ambientOsc: OscillatorNode | null = null;
+  private ambientGain: GainNode | null = null;
+
   playAmbientHum(): void {
+    if (this.ambientOsc) return; // already playing
     const ctx = this.getContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -91,5 +95,19 @@ export class AudioManager {
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(ctx.currentTime);
+    this.ambientOsc = osc;
+    this.ambientGain = gain;
+  }
+
+  stopAmbientHum(): void {
+    if (this.ambientOsc) {
+      this.ambientOsc.stop();
+      this.ambientOsc.disconnect();
+      this.ambientOsc = null;
+    }
+    if (this.ambientGain) {
+      this.ambientGain.disconnect();
+      this.ambientGain = null;
+    }
   }
 }

@@ -1,8 +1,8 @@
 import * as CANNON from 'cannon-es';
 import { GSSolver } from 'cannon-es';
 
-const VELOCITY_THRESHOLD = 0.05;
-const ANGULAR_VELOCITY_THRESHOLD = 0.1;
+export const VELOCITY_THRESHOLD = 0.05;
+export const ANGULAR_VELOCITY_THRESHOLD = 0.1;
 const SOLVER_ITERATIONS = 10;
 
 export class PhysicsWorld {
