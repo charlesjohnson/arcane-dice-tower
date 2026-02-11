@@ -11,6 +11,7 @@ export type DiceSelectionChangeListener = (selection: Map<DiceType, number>) => 
 export class DiceSelector {
   private container: HTMLDivElement;
   private summary: HTMLDivElement;
+  private clearAllBtn!: HTMLButtonElement;
   private selection = new Map<DiceType, number>();
   private miniRenderers: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; mesh: THREE.Mesh }[] = [];
   private listeners: DiceSelectionChangeListener[] = [];
@@ -27,6 +28,16 @@ export class DiceSelector {
     for (const type of DICE_TYPES) {
       this.createDiceButton(type);
     }
+
+    this.clearAllBtn = document.createElement('button');
+    this.clearAllBtn.className = 'clear-all-btn hidden';
+    this.clearAllBtn.textContent = '\u00d7';
+    this.clearAllBtn.addEventListener('click', () => {
+      this.selection.clear();
+      this.updateDisplay();
+      this.emitChange();
+    });
+    this.container.appendChild(this.clearAllBtn);
 
     this.setSelection(new Map([['d6' as DiceType, 1]]));
   }
@@ -71,6 +82,22 @@ export class DiceSelector {
     badge.className = 'count-badge hidden';
     badge.textContent = '0';
     btn.appendChild(badge);
+
+    const minusBtn = document.createElement('div');
+    minusBtn.className = 'minus-btn hidden';
+    minusBtn.textContent = '\u2212';
+    btn.appendChild(minusBtn);
+
+    minusBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const current = this.selection.get(type) || 0;
+      if (current > 0) {
+        this.selection.set(type, current - 1);
+        if (this.selection.get(type) === 0) this.selection.delete(type);
+        this.updateDisplay();
+        this.emitChange();
+      }
+    });
 
     const renderer = new THREE.WebGLRenderer({ canvas: miniCanvas, alpha: true, antialias: true });
     renderer.setSize(72, 72);
@@ -123,14 +150,20 @@ export class DiceSelector {
 
   private updateDisplay(): void {
     const badges = this.container.querySelectorAll('.count-badge');
+    const minusBtns = this.container.querySelectorAll('.minus-btn');
     let i = 0;
     for (const type of DICE_TYPES) {
       const count = this.selection.get(type) || 0;
       const badge = badges[i] as HTMLElement;
       badge.textContent = String(count);
       badge.classList.toggle('hidden', count === 0);
+      const minusBtn = minusBtns[i] as HTMLElement;
+      minusBtn.classList.toggle('hidden', count === 0);
       i++;
     }
+
+    const hasAny = this.selection.size > 0;
+    this.clearAllBtn.classList.toggle('hidden', !hasAny);
 
     const parts: string[] = [];
     for (const [type, count] of this.selection) {
