@@ -39,27 +39,28 @@ function createFaceTexture(value: number | string, dieType: DiceType): THREE.Can
 }
 
 // D4 triangle layout in canvas space (y-down). Circumradius matches DiceGeometry UV mapping.
-const D4_CANVAS_R = 0.4 * CANVAS_SIZE; // 102.4 px
+export const D4_CANVAS_R = 0.4 * CANVAS_SIZE; // 102.4 px
 const D4_CANVAS_TOP = { x: C, y: C - D4_CANVAS_R };
 const D4_CANVAS_BL = { x: C - D4_CANVAS_R * Math.sin(Math.PI / 3), y: C + D4_CANVAS_R * 0.5 };
 const D4_CANVAS_BR = { x: C + D4_CANVAS_R * Math.sin(Math.PI / 3), y: C + D4_CANVAS_R * 0.5 };
 
-// Number positions: 65% from center toward each vertex (canvas space)
-const INSET = 0.65;
+// Number positions: percentage from center toward each vertex (canvas space)
+export const D4_INSET = 0.45;
+export const D4_FONT_SCALE = 0.18;
 const D4_NUMBER_POSITIONS: { x: number; y: number; rotation: number }[] = [
   { // top vertex: upright
-    x: C + (D4_CANVAS_TOP.x - C) * INSET,
-    y: C + (D4_CANVAS_TOP.y - C) * INSET,
+    x: C + (D4_CANVAS_TOP.x - C) * D4_INSET,
+    y: C + (D4_CANVAS_TOP.y - C) * D4_INSET,
     rotation: 0,
   },
   { // bottom-left vertex: text "up" points toward BL
-    x: C + (D4_CANVAS_BL.x - C) * INSET,
-    y: C + (D4_CANVAS_BL.y - C) * INSET,
+    x: C + (D4_CANVAS_BL.x - C) * D4_INSET,
+    y: C + (D4_CANVAS_BL.y - C) * D4_INSET,
     rotation: -(2 * Math.PI) / 3,
   },
   { // bottom-right vertex: text "up" points toward BR
-    x: C + (D4_CANVAS_BR.x - C) * INSET,
-    y: C + (D4_CANVAS_BR.y - C) * INSET,
+    x: C + (D4_CANVAS_BR.x - C) * D4_INSET,
+    y: C + (D4_CANVAS_BR.y - C) * D4_INSET,
     rotation: (2 * Math.PI) / 3,
   },
 ];
@@ -75,7 +76,7 @@ function createD4FaceTexture(faceIndex: number): THREE.CanvasTexture {
   ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
   const values = D4_FACE_VERTEX_VALUES[faceIndex];
-  const fontSize = CANVAS_SIZE * 0.22;
+  const fontSize = CANVAS_SIZE * D4_FONT_SCALE;
   ctx.font = `bold ${fontSize}px serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
