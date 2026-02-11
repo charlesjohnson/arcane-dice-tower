@@ -168,3 +168,133 @@ describe('Batch dice rolling', () => {
     expect(orchestrator.getState()).toBe('settled');
   });
 });
+
+describe('Tray overflow clearing', () => {
+  it('clears tray when spawning next batch would exceed 8 dice', () => {
+    const { orchestrator, scene, physics } = createOrchestrator();
+    // 12 dice = 3 batches of 4. After batches 1+2 (8 dice), before batch 3 clear.
+    const dice = Array(12).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    orchestrator.roll(dice);
+    expect(scene.children.length).toBe(4); // batch 1
+
+    // Settle batch 1
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+    expect(scene.children.length).toBe(8); // batch 1 + batch 2
+
+    // Settle batch 2 — should trigger clear before spawning batch 3
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+    // After clear: 8 dice removed, 4 new spawned = 4 in scene
+    expect(scene.children.length).toBe(4);
+  });
+
+  it('fires subtotal callback when clearing tray mid-roll', () => {
+    const { orchestrator, physics } = createOrchestrator();
+    const dice = Array(12).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    let subtotalValue: number | null = null;
+    orchestrator.onSubtotalUpdate((subtotal: number) => {
+      subtotalValue = subtotal;
+    });
+
+    orchestrator.roll(dice);
+
+    // Settle batch 1
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    // Settle batch 2 — should fire subtotal
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    expect(subtotalValue).not.toBeNull();
+    expect(subtotalValue).toBeGreaterThanOrEqual(0);
+  });
+
+  it('includes accumulated subtotal in final result total', () => {
+    const { orchestrator, physics } = createOrchestrator();
+    const dice = Array(12).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    let finalResult: RollResult | null = null;
+    orchestrator.onStateChange((state, result) => {
+      if (state === 'settled') finalResult = result;
+    });
+
+    let subtotalValue = 0;
+    orchestrator.onSubtotalUpdate((subtotal: number) => {
+      subtotalValue = subtotal;
+    });
+
+    orchestrator.roll(dice);
+
+    // Settle batch 1
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    // Settle batch 2 — triggers clear
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    // Settle batch 3 — final
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    expect(finalResult).not.toBeNull();
+    // Final result includes ALL dice (accumulated + last batch)
+    expect(finalResult!.dice.length).toBe(12);
+    // Total should equal sum of all dice values
+    const allDiceTotal = finalResult!.dice.reduce((sum, d) => sum + d.value, 0);
+    expect(finalResult!.total).toBe(allDiceTotal);
+    // And the subtotal should be a portion of the grand total
+    expect(subtotalValue).toBeGreaterThan(0);
+    expect(subtotalValue).toBeLessThan(finalResult!.total);
+  });
+
+  it('does not clear tray when total dice would stay at or below 8', () => {
+    const { orchestrator, scene, physics } = createOrchestrator();
+    // 8 dice = 2 batches of 4. After batch 1 (4 dice), spawning 4 more = 8, no clear needed.
+    const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    orchestrator.roll(dice);
+    expect(scene.children.length).toBe(4);
+
+    // Settle batch 1
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+    // All 8 dice should be in scene — no clearing happened
+    expect(scene.children.length).toBe(8);
+  });
+
+  it('resets subtotal between separate rolls', () => {
+    const { orchestrator, physics } = createOrchestrator();
+    const dice = Array(12).fill('d6') as import('../dice/DiceConfig').DiceType[];
+
+    const subtotals: number[] = [];
+    orchestrator.onSubtotalUpdate((subtotal: number) => {
+      subtotals.push(subtotal);
+    });
+
+    // First roll
+    orchestrator.roll(dice);
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    // Second roll — subtotal should start from 0
+    orchestrator.roll(dice);
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+    zeroAllVelocities(physics);
+    orchestrator.update(1.1);
+
+    // Both rolls should have fired subtotal callbacks
+    expect(subtotals.length).toBe(2);
+  });
+});
