@@ -24,6 +24,33 @@ export function getMaxValue(type: DiceType): number {
   return Math.max(...DICE_CONFIGS[type].faceValues);
 }
 
+/**
+ * D4 tetrahedron vertex positions (unit vectors matching Three.js TetrahedronGeometry).
+ * Scale by radius for world-space positions.
+ */
+const s = 1 / Math.sqrt(3);
+export const D4_VERTEX_POSITIONS = [
+  [s, s, s],      // vertex 0
+  [-s, -s, s],    // vertex 1
+  [-s, s, -s],    // vertex 2
+  [s, -s, -s],    // vertex 3
+] as const;
+
+/** Value assigned to each tetrahedron vertex (index → die value). */
+export const D4_VERTEX_VALUES = [1, 2, 3, 4] as const;
+
+/**
+ * For each face (in Three.js TetrahedronGeometry buffer order),
+ * the three vertex VALUES displayed on that face.
+ * Order: [top UV vertex, bottom-left UV vertex, bottom-right UV vertex].
+ */
+export const D4_FACE_VERTEX_VALUES: readonly [number, number, number][] = [
+  [3, 2, 1],  // Face 0: buffer vertices v2, v1, v0
+  [1, 4, 3],  // Face 1: buffer vertices v0, v3, v2
+  [2, 4, 1],  // Face 2: buffer vertices v1, v3, v0
+  [3, 4, 2],  // Face 3: buffer vertices v2, v3, v1
+];
+
 export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
   d4: {
     faceCount: 4,
@@ -38,7 +65,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     label: 'D6',
     mass: 4,
     radius: 0.5,
-    faceValues: [1, 2, 3, 4, 5, 6],
+    faceValues: [4, 3, 2, 5, 6, 1],
     fontScale: 0.4,
   },
   d8: {
@@ -46,7 +73,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     label: 'D8',
     mass: 3.5,
     radius: 0.55,
-    faceValues: [1, 2, 3, 4, 5, 6, 7, 8],
+    faceValues: [8, 6, 7, 4, 3, 1, 5, 2],
     fontScale: 0.3,
   },
   d10: {
@@ -62,7 +89,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     label: 'D12',
     mass: 4.5,
     radius: 0.6,
-    faceValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    faceValues: [12, 11, 5, 10, 2, 9, 7, 8, 1, 3, 6, 4],
     fontScale: 0.35,
   },
   d20: {

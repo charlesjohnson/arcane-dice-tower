@@ -20,3 +20,21 @@ export function findUpwardFaceIndex(
 
   return bestIndex;
 }
+
+export function findUpwardVertexIndex(
+  vertexPositions: THREE.Vector3[],
+  quaternion: THREE.Quaternion
+): number {
+  let bestIndex = 0;
+  let bestY = -Infinity;
+
+  for (let i = 0; i < vertexPositions.length; i++) {
+    const rotated = vertexPositions[i].clone().applyQuaternion(quaternion);
+    if (rotated.y > bestY) {
+      bestY = rotated.y;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}

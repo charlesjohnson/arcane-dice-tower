@@ -8,7 +8,7 @@ export function createDiceGeometry(type: DiceType): THREE.BufferGeometry {
 
   switch (type) {
     case 'd4':
-      return addFaceGroupsAndUVs(new THREE.TetrahedronGeometry(r), config.faceCount);
+      return addD4FaceGroupsAndUVs(new THREE.TetrahedronGeometry(r));
     case 'd6':
       // BoxGeometry already has built-in face groups for 6 materials
       return new THREE.BoxGeometry(r * 1.2, r * 1.2, r * 1.2);
@@ -23,6 +23,32 @@ export function createDiceGeometry(type: DiceType): THREE.BufferGeometry {
     case 'd20':
       return addFaceGroupsAndUVs(new THREE.IcosahedronGeometry(r), config.faceCount);
   }
+}
+
+// Circumradius for the equilateral UV triangle centered at (0.5, 0.5).
+// D4 textures use flipY=false, so UV y matches canvas y (y=0 at top).
+const D4_UV_R = 0.4;
+const D4_UV_VERTICES: [number, number][] = [
+  [0.5, 0.5 - D4_UV_R],                                          // top
+  [0.5 - D4_UV_R * Math.sin(Math.PI / 3), 0.5 + D4_UV_R * 0.5], // bottom-left
+  [0.5 + D4_UV_R * Math.sin(Math.PI / 3), 0.5 + D4_UV_R * 0.5], // bottom-right
+];
+
+function addD4FaceGroupsAndUVs(geometry: THREE.BufferGeometry): THREE.BufferGeometry {
+  const vertexCount = 12; // 4 faces × 3 vertices
+  const uvs = new Float32Array(vertexCount * 2);
+
+  for (let face = 0; face < 4; face++) {
+    geometry.addGroup(face * 3, 3, face);
+    for (let v = 0; v < 3; v++) {
+      const idx = face * 3 + v;
+      uvs[idx * 2] = D4_UV_VERTICES[v][0];
+      uvs[idx * 2 + 1] = D4_UV_VERTICES[v][1];
+    }
+  }
+
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  return geometry;
 }
 
 function addFaceGroupsAndUVs(
