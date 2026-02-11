@@ -4,7 +4,7 @@ import { DICE_CONFIGS } from './DiceConfig';
 
 const CANVAS_SIZE = 256;
 
-function createFaceTexture(value: number | string, _dieType: DiceType): THREE.CanvasTexture {
+function createFaceTexture(value: number | string, dieType: DiceType): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = CANVAS_SIZE;
   canvas.height = CANVAS_SIZE;
@@ -16,13 +16,14 @@ function createFaceTexture(value: number | string, _dieType: DiceType): THREE.Ca
 
   // Glowing number
   const text = String(value);
-  ctx.font = `bold ${CANVAS_SIZE * 0.4}px serif`;
+  const fontScale = DICE_CONFIGS[dieType].fontScale;
+  ctx.font = `bold ${CANVAS_SIZE * fontScale}px serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Outer glow
+  // Outer glow (scale blur with font size to avoid clipping on small faces)
   ctx.shadowColor = '#8855ff';
-  ctx.shadowBlur = 20;
+  ctx.shadowBlur = CANVAS_SIZE * fontScale * 0.2;
   ctx.fillStyle = '#bb99ff';
   ctx.fillText(text, CANVAS_SIZE / 2, CANVAS_SIZE / 2);
 
