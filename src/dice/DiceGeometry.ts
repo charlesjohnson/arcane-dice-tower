@@ -50,10 +50,14 @@ function addFaceGroupsAndUVs(
     }
     center.divideScalar(verticesPerFace);
 
-    // Compute face normal from first triangle
-    const edge1 = new THREE.Vector3().subVectors(faceVertices[1], faceVertices[0]);
-    const edge2 = new THREE.Vector3().subVectors(faceVertices[2], faceVertices[0]);
-    const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+    // Compute face normal as area-weighted average of all triangle normals
+    const normal = new THREE.Vector3();
+    for (let t = 0; t < verticesPerFace; t += 3) {
+      const e1 = new THREE.Vector3().subVectors(faceVertices[t + 1], faceVertices[t]);
+      const e2 = new THREE.Vector3().subVectors(faceVertices[t + 2], faceVertices[t]);
+      normal.add(new THREE.Vector3().crossVectors(e1, e2));
+    }
+    normal.normalize();
 
     // Create tangent/bitangent basis for planar UV projection
     const tangent = new THREE.Vector3();

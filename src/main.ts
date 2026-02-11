@@ -103,7 +103,8 @@ orchestrator.onStateChange((state: string, result: RollResult | null) => {
       }
     }
 
-    cameraDirector.returnToIdle();
+    // Camera stays in tray view so the result is visible.
+    // startTracking() on the next roll handles the transition.
   }
 });
 
