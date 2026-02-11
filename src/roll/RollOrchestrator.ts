@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import type { DiceType } from '../dice/DiceConfig';
-import { DICE_CONFIGS, getMaxValue } from '../dice/DiceConfig';
+import { DICE_CONFIGS, getMaxValue, D4_VERTEX_POSITIONS, D4_VERTEX_VALUES } from '../dice/DiceConfig';
 import { createDiceGeometry } from '../dice/DiceGeometry';
 import { createDiceMaterial } from '../dice/DiceMaterial';
 import { createDiceBody, applyRandomRollForce } from '../dice/DiceBody';
-import { findUpwardFaceIndex } from '../dice/DiceResult';
+import { findUpwardFaceIndex, findUpwardVertexIndex } from '../dice/DiceResult';
 import { PhysicsWorld, VELOCITY_THRESHOLD, ANGULAR_VELOCITY_THRESHOLD } from '../physics/PhysicsWorld';
 import type { Tower } from '../tower/TowerBuilder';
 
@@ -225,15 +225,26 @@ export class RollOrchestrator {
 
     for (const die of this.dice) {
       const config = DICE_CONFIGS[die.type];
-      const faceNormals = this.extractFaceNormals(die.mesh.geometry, config.faceCount);
       const quaternion = new THREE.Quaternion(
         die.body.quaternion.x,
         die.body.quaternion.y,
         die.body.quaternion.z,
         die.body.quaternion.w
       );
-      const faceIndex = findUpwardFaceIndex(faceNormals, quaternion);
-      const value = config.faceValues[faceIndex % config.faceValues.length];
+
+      let value: number;
+      if (die.type === 'd4') {
+        const r = config.radius;
+        const vertexPositions = D4_VERTEX_POSITIONS.map(
+          ([x, y, z]) => new THREE.Vector3(x * r, y * r, z * r)
+        );
+        const vertexIndex = findUpwardVertexIndex(vertexPositions, quaternion);
+        value = D4_VERTEX_VALUES[vertexIndex];
+      } else {
+        const faceNormals = this.extractFaceNormals(die.mesh.geometry, config.faceCount);
+        const faceIndex = findUpwardFaceIndex(faceNormals, quaternion);
+        value = config.faceValues[faceIndex % config.faceValues.length];
+      }
       die.result = value;
 
       if (die.d100Role === 'tens') {
