@@ -79,7 +79,7 @@ for (const baffleBody of tower.baffleBodies) {
 let trayHitNotified = false;
 tower.trayFloorBody.addEventListener('collide', () => {
   if (audioInitialized) audio.playImpact(0.5);
-  if (!trayHitNotified && orchestrator.getState() === 'rolling') {
+  if (!trayHitNotified && orchestrator.getState() === 'rolling' && !orchestrator.hasPendingBatches()) {
     cameraDirector.notifyTrayHit();
     trayHitNotified = true;
   }
@@ -132,6 +132,13 @@ orchestrator.onStateChange((state: string, result: RollResult | null) => {
   }
 });
 
+// --- Wire batch-ready callback for camera sweep between batches ---
+orchestrator.onBatchReady(() => {
+  cameraDirector.sweepToTop(tower.dropPosition.y, () => {
+    orchestrator.spawnNextBatch();
+  });
+});
+
 // --- Wire presets ---
 presetsPanel.onPresetSelected((preset: Preset) => {
   const selection = new Map<DiceType, number>();
@@ -166,7 +173,7 @@ function animate(): void {
 
   physics.step(delta);
   orchestrator.update(delta);
-  cameraDirector.update(delta, orchestrator.getDicePositions());
+  cameraDirector.update(delta, orchestrator.getCurrentBatchPositions());
   effects.update(delta);
   ambientBackground.update(elapsed);
   diceSelector.updateMiniDice(elapsed);
