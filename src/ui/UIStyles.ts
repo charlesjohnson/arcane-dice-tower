@@ -66,6 +66,59 @@ export function injectStyles(): void {
       display: none;
     }
 
+    .dice-btn .minus-btn {
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      min-width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #993355, #bb5577);
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(153, 51, 85, 0.6);
+      transition: background 0.2s;
+    }
+
+    .dice-btn .minus-btn:hover {
+      background: linear-gradient(135deg, #bb4466, #dd6688);
+    }
+
+    .dice-btn .minus-btn.hidden {
+      display: none;
+    }
+
+    .clear-all-btn {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #993355, #bb5577);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: center;
+      box-shadow: 0 0 8px rgba(153, 51, 85, 0.6);
+      transition: background 0.2s;
+    }
+
+    .clear-all-btn:hover {
+      background: linear-gradient(135deg, #bb4466, #dd6688);
+    }
+
+    .clear-all-btn.hidden {
+      display: none;
+    }
+
     .roll-summary {
       position: fixed;
       bottom: 155px;

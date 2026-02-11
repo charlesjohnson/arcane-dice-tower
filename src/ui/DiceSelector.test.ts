@@ -245,4 +245,93 @@ describe('DiceSelector', () => {
     selector.setSelection(new Map([['d20', 1]]));
     expect(selector.getSelectedDice()).toEqual(['d20']);
   });
+
+  describe('minus buttons', () => {
+    it('shows a minus button on dice types with count > 0', () => {
+      const root = document.createElement('div');
+      new DiceSelector(root);
+      // d6 is pre-selected (index 1), should have visible minus button
+      const buttons = root.querySelectorAll('.dice-btn');
+      const d6Minus = buttons[1].querySelector('.minus-btn') as HTMLElement;
+      expect(d6Minus).not.toBeNull();
+      expect(d6Minus.classList.contains('hidden')).toBe(false);
+    });
+
+    it('hides minus button when count is 0', () => {
+      const root = document.createElement('div');
+      new DiceSelector(root);
+      // d4 is index 0, not selected — minus button should be hidden
+      const buttons = root.querySelectorAll('.dice-btn');
+      const d4Minus = buttons[0].querySelector('.minus-btn') as HTMLElement;
+      expect(d4Minus).not.toBeNull();
+      expect(d4Minus.classList.contains('hidden')).toBe(true);
+    });
+
+    it('decrements count when minus button is clicked', () => {
+      const root = document.createElement('div');
+      const selector = new DiceSelector(root);
+      selector.setSelection(new Map([['d6', 3]]));
+
+      const buttons = root.querySelectorAll('.dice-btn');
+      const d6Minus = buttons[1].querySelector('.minus-btn') as HTMLElement;
+      d6Minus.click();
+
+      expect(selector.getSelectedDice()).toEqual(['d6', 'd6']);
+    });
+
+    it('emits change event when minus button is clicked', () => {
+      const root = document.createElement('div');
+      const selector = new DiceSelector(root);
+      let changed = false;
+      selector.onChange(() => { changed = true; });
+
+      const buttons = root.querySelectorAll('.dice-btn');
+      const d6Minus = buttons[1].querySelector('.minus-btn') as HTMLElement;
+      d6Minus.click();
+
+      expect(changed).toBe(true);
+    });
+  });
+
+  describe('clear all button', () => {
+    it('shows clear-all button when dice are selected', () => {
+      const root = document.createElement('div');
+      new DiceSelector(root);
+      const clearBtn = root.querySelector('.clear-all-btn') as HTMLElement;
+      expect(clearBtn).not.toBeNull();
+      expect(clearBtn.classList.contains('hidden')).toBe(false);
+    });
+
+    it('hides clear-all button when no dice are selected', () => {
+      const root = document.createElement('div');
+      const selector = new DiceSelector(root);
+      selector.clear();
+
+      const clearBtn = root.querySelector('.clear-all-btn') as HTMLElement;
+      expect(clearBtn.classList.contains('hidden')).toBe(true);
+    });
+
+    it('clears all dice when clear-all button is clicked', () => {
+      const root = document.createElement('div');
+      const selector = new DiceSelector(root);
+      selector.setSelection(new Map([['d6', 2], ['d20', 1]]));
+
+      const clearBtn = root.querySelector('.clear-all-btn') as HTMLElement;
+      clearBtn.click();
+
+      expect(selector.getSelectedDice()).toEqual([]);
+    });
+
+    it('emits change event when clear-all is clicked', () => {
+      const root = document.createElement('div');
+      const selector = new DiceSelector(root);
+      let changed = false;
+      selector.onChange(() => { changed = true; });
+
+      const clearBtn = root.querySelector('.clear-all-btn') as HTMLElement;
+      clearBtn.click();
+
+      expect(changed).toBe(true);
+    });
+  });
 });
