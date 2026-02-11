@@ -52,15 +52,15 @@ const D4_NUMBER_POSITIONS: { x: number; y: number; rotation: number }[] = [
     y: C + (D4_CANVAS_TOP.y - C) * INSET,
     rotation: 0,
   },
-  { // bottom-left vertex: rotated 120° CW
+  { // bottom-left vertex: text "up" points toward BL
     x: C + (D4_CANVAS_BL.x - C) * INSET,
     y: C + (D4_CANVAS_BL.y - C) * INSET,
-    rotation: (2 * Math.PI) / 3,
+    rotation: -(2 * Math.PI) / 3,
   },
-  { // bottom-right vertex: rotated 120° CCW
+  { // bottom-right vertex: text "up" points toward BR
     x: C + (D4_CANVAS_BR.x - C) * INSET,
     y: C + (D4_CANVAS_BR.y - C) * INSET,
-    rotation: -(2 * Math.PI) / 3,
+    rotation: (2 * Math.PI) / 3,
   },
 ];
 
