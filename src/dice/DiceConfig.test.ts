@@ -43,6 +43,15 @@ describe('DiceConfig', () => {
     expect(getMaxValue('d100')).toBe(100);
   });
 
+  it('d8 opposite faces sum to 9 (standard d8 convention)', () => {
+    const values = DICE_CONFIGS.d8.faceValues;
+    // Three.js OctahedronGeometry opposite face pairs: (0,5), (1,4), (2,7), (3,6)
+    const oppositePairs: [number, number][] = [[0, 5], [1, 4], [2, 7], [3, 6]];
+    for (const [a, b] of oppositePairs) {
+      expect(values[a] + values[b]).toBe(9);
+    }
+  });
+
   it('d6 faceValues maps opposite BoxGeometry faces to sum to 7', () => {
     // Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z (indices 0-5)
     // Standard D6: opposite faces sum to 7 (1↔6, 2↔5, 3↔4)
