@@ -59,6 +59,14 @@ export class RollOrchestrator {
     return this.state;
   }
 
+  getDicePositions(): { x: number; y: number; z: number }[] {
+    return this.dice.map(die => ({
+      x: die.body.position.x,
+      y: die.body.position.y,
+      z: die.body.position.z,
+    }));
+  }
+
   roll(diceList: DiceType[]): void {
     this.clearDice();
     this.settleTimer = 0;
