@@ -27,6 +27,8 @@ export class DiceSelector {
     for (const type of DICE_TYPES) {
       this.createDiceButton(type);
     }
+
+    this.setSelection(new Map([['d6' as DiceType, 1]]));
   }
 
   onChange(listener: DiceSelectionChangeListener): void {
@@ -43,6 +45,11 @@ export class DiceSelector {
 
   clear(): void {
     this.selection.clear();
+    this.updateDisplay();
+  }
+
+  setSelection(selection: Map<DiceType, number>): void {
+    this.selection = new Map(selection);
     this.updateDisplay();
   }
 
