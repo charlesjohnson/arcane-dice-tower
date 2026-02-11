@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { createDiceGeometry } from './DiceGeometry';
+import { DICE_CONFIGS } from './DiceConfig';
 
 describe('createDiceGeometry', () => {
   it('creates a tetrahedron for d4', () => {
@@ -40,6 +41,31 @@ describe('createDiceGeometry', () => {
     const positions10 = d10Geo.getAttribute('position');
     expect(positions100.count).toBe(positions10.count);
   });
+
+  it.each(['d4', 'd8', 'd10', 'd12', 'd20', 'd100'] as const)(
+    '%s UV centroid is at (0.5, 0.5) so face numbers are centered',
+    (type) => {
+      const geo = createDiceGeometry(type);
+      const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+      const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+      const faceCount = DICE_CONFIGS[type].faceCount;
+      const verticesPerFace = pos.count / faceCount;
+
+      for (let face = 0; face < faceCount; face++) {
+        const start = face * verticesPerFace;
+        let sumU = 0, sumV = 0;
+        for (let v = 0; v < verticesPerFace; v++) {
+          sumU += uv.getX(start + v);
+          sumV += uv.getY(start + v);
+        }
+        const avgU = sumU / verticesPerFace;
+        const avgV = sumV / verticesPerFace;
+
+        expect(avgU).toBeCloseTo(0.5, 2);
+        expect(avgV).toBeCloseTo(0.5, 2);
+      }
+    }
+  );
 
   it.each(['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as const)(
     '%s has all triangle normals pointing outward',

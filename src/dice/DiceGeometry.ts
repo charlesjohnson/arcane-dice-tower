@@ -77,15 +77,16 @@ function addFaceGroupsAndUVs(
       minV = Math.min(minV, v); maxV = Math.max(maxV, v);
     }
 
-    // Normalize UVs: center the face in texture space with padding
-    const range = Math.max(maxU - minU, maxV - minV) || 1;
-    const centerU = (minU + maxU) / 2;
-    const centerV = (minV + maxV) / 2;
+    // Normalize UVs: center on face centroid (projected origin) with padding
+    const maxExtent = Math.max(
+      Math.abs(minU), Math.abs(maxU), Math.abs(minV), Math.abs(maxV)
+    );
+    const range = maxExtent * 2 || 1;
 
     for (let v = 0; v < verticesPerFace; v++) {
       const [pu, pv] = projected[v];
-      uvs[(start + v) * 2] = 0.5 + ((pu - centerU) / range) * 0.8;
-      uvs[(start + v) * 2 + 1] = 0.5 + ((pv - centerV) / range) * 0.8;
+      uvs[(start + v) * 2] = 0.5 + (pu / range) * 0.8;
+      uvs[(start + v) * 2 + 1] = 0.5 + (pv / range) * 0.8;
     }
   }
 
