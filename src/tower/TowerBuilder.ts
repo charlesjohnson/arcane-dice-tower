@@ -202,12 +202,17 @@ export function buildTower(
   trayFloor.receiveShadow = true;
   group.add(trayFloor);
 
-  // Tray floor physics
+  // Tray floor physics — use a Plane instead of a Box so there are no
+  // vertical front-face edges. Box edges act as walls that catch D6
+  // corners poking below the ramp surface, stalling dice at the ramp exit.
+  // A Plane only pushes upward (no backward force from edge normals).
   const floorBody = new CANNON.Body({
     mass: 0,
-    shape: new CANNON.Box(new CANNON.Vec3(TRAY_WIDTH / 2, 0.05, TRAY_DEPTH / 2)),
+    shape: new CANNON.Plane(),
+    material: rampSurfaceMaterial,
   });
-  floorBody.position.set(0, trayFloorY, TOWER_RADIUS + TRAY_DEPTH / 2);
+  floorBody.position.set(0, trayFloorY, 0);
+  floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // face upward
   physics.addStaticBody(floorBody);
 
   // Tray walls (left, right, back)
@@ -242,30 +247,11 @@ export function buildTower(
     physics.addStaticBody(wallBody);
   }
 
-  // --- Sloped floor to funnel dice from tower base into tray ---
-  const slopeLength = TOWER_RADIUS + TRAY_DEPTH * 0.3;
-  const slopeAngle = Math.atan2(trayFloorY, slopeLength); // gentle slope
-  const slopeGeo = new THREE.BoxGeometry(TOWER_RADIUS * 1.8, 0.1, slopeLength);
-  const slopeMesh = new THREE.Mesh(slopeGeo, ivoryMaterial);
-  slopeMesh.position.set(0, trayFloorY / 2, slopeLength / 2 - TOWER_RADIUS * 0.3);
-  slopeMesh.rotation.x = slopeAngle;
-  slopeMesh.receiveShadow = true;
-  group.add(slopeMesh);
-
-  // Physics collider for the slope
-  const slopeBody = new CANNON.Body({
-    mass: 0,
-    shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS * 0.9, 0.05, slopeLength / 2)),
-    material: rampSurfaceMaterial,
-  });
-  slopeBody.position.set(0, trayFloorY / 2, slopeLength / 2 - TOWER_RADIUS * 0.3);
-  slopeBody.quaternion.setFromEuler(slopeAngle, 0, 0);
-  physics.addStaticBody(slopeBody);
-
-  // No front lip — with linearDamping 0.5, dice enter the tray at low
-  // speed and the three tray walls (left, right, back) are sufficient to
-  // contain them. A lip here blocks dice exiting the ramp because the
-  // cannon-es box-box solver can't slide a D6 over a raised edge.
+  // No bridge/slope between ramp and tray. Any box-shaped body in this
+  // region has a vertical front face that catches D6 corners poking
+  // below the ramp surface, stalling dice at the ramp edge.
+  // The tray floor (frictionless) is low enough that its front face
+  // can't catch die corners, and linearDamping 0.5 slows dice in the tray.
 
   // Tower interior wall physics (back + sides)
   // Physics bodies are thicker than visual walls to give the solver enough

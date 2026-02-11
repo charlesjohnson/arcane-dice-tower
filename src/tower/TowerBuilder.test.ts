@@ -411,6 +411,61 @@ describe('Tower baffle geometry prevents dice from getting stuck', () => {
   });
 });
 
+describe('Ramp-to-tray transition', () => {
+  it('tray floor uses a Plane (no edges to catch die corners)', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    buildTower(scene, physics);
+
+    const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
+
+    // The tray floor should be a Plane, not a Box. Box edges have vertical
+    // front faces that act as walls, catching D6 corners poking below the
+    // ramp surface and stalling dice at the ramp exit.
+    const planeBody = bodies.find((b: CANNON.Body) =>
+      b.mass === 0 &&
+      b.shapes[0] instanceof CANNON.Plane
+    )!;
+    expect(planeBody, 'tray floor Plane body not found').toBeTruthy();
+
+    // Must be frictionless so D6 boxes slide (cannon-es box-plane solver)
+    expect(planeBody.material, 'tray floor must have a material').toBeTruthy();
+    expect(
+      (planeBody.material as CANNON.Material).friction,
+      'tray floor must be frictionless'
+    ).toBe(0);
+  });
+
+  it('D6 settles deep in the tray, not at the ramp edge', () => {
+    const scene = new THREE.Scene();
+    const physics = new PhysicsWorld();
+    const tower = buildTower(scene, physics);
+
+    const d6Half = (0.6 * 1.2) / 2;
+    const die = new CANNON.Body({
+      mass: 0.3,
+      shape: new CANNON.Box(new CANNON.Vec3(d6Half, d6Half, d6Half)),
+      material: DICE_MATERIAL,
+      linearDamping: 0.5,
+      angularDamping: 0.5,
+    });
+    die.allowSleep = false;
+    die.position.set(tower.dropPosition.x, tower.dropPosition.y, tower.dropPosition.z);
+    die.angularVelocity.set(5, -3, 4);
+    physics.addDynamicBody(die);
+
+    for (let i = 0; i < 900; i++) {
+      physics.step(1 / 60);
+    }
+
+    // Die must be well inside the tray (Z > 2.5), not stuck at the ramp edge (~1.98)
+    expect(
+      die.position.z,
+      `Die stopped at Z=${die.position.z.toFixed(3)}, stuck near ramp edge instead of in tray`
+    ).toBeGreaterThan(2.5);
+  });
+});
+
 describe('cannon-es box-on-slope friction workaround', () => {
   // Documents a cannon-es limitation: its box-box friction solver applies
   // far more friction than specified for any non-zero coefficient. Only
