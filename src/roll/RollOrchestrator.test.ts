@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { computeSpawnOffsetX } from './RollOrchestrator';
 import { createDiceBody, applyRandomRollForce } from '../dice/DiceBody';
 
-const TOWER_RADIUS = 1.5;
+const TOWER_RADIUS = 2.0;
 
 describe('Dice spawn position clamping', () => {
   it('clamps horizontal offset so all dice stay inside tower walls', () => {

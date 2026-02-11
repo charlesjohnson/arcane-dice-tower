@@ -21,6 +21,15 @@ describe('PhysicsWorld', () => {
     expect(pw.areBodiesSettled()).toBe(true);
   });
 
+  it('has default friction high enough to keep dice from sliding everywhere', () => {
+    const pw = new PhysicsWorld();
+    // Default friction is the fallback for contacts without a registered
+    // ContactMaterial. Must be high enough to stop dice on flat surfaces
+    // (tray floor, walls) but low-friction surfaces like ramps and baffles
+    // use explicit ContactMaterials instead.
+    expect(pw.world.defaultContactMaterial.friction).toBeGreaterThanOrEqual(0.2);
+  });
+
   it('handles frame drops without losing physics steps', () => {
     const pw = new PhysicsWorld();
 
