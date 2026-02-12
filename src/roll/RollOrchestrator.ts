@@ -297,28 +297,36 @@ export class RollOrchestrator {
     const faceNormal = new THREE.Vector3();
 
     for (let face = 0; face < faceCount; face++) {
-      // Use the first triangle of each face to compute the normal
-      const triIndex = face * trianglesPerFace;
+      // Average the normals of ALL triangles in this face.
+      // Using only the first triangle fails for D10 kite faces where all
+      // first triangles share the top apex, making adjacent face normals
+      // nearly identical and breaking upward-face detection.
+      const avgNormal = new THREE.Vector3();
 
-      if (index) {
-        const a = index.getX(triIndex * 3);
-        const b = index.getX(triIndex * 3 + 1);
-        const c = index.getX(triIndex * 3 + 2);
-        vA.fromBufferAttribute(posAttr, a);
-        vB.fromBufferAttribute(posAttr, b);
-        vC.fromBufferAttribute(posAttr, c);
-      } else {
-        const baseVertex = triIndex * 3;
-        vA.fromBufferAttribute(posAttr, baseVertex);
-        vB.fromBufferAttribute(posAttr, baseVertex + 1);
-        vC.fromBufferAttribute(posAttr, baseVertex + 2);
+      for (let t = 0; t < trianglesPerFace; t++) {
+        const triIndex = face * trianglesPerFace + t;
+
+        if (index) {
+          const a = index.getX(triIndex * 3);
+          const b = index.getX(triIndex * 3 + 1);
+          const c = index.getX(triIndex * 3 + 2);
+          vA.fromBufferAttribute(posAttr, a);
+          vB.fromBufferAttribute(posAttr, b);
+          vC.fromBufferAttribute(posAttr, c);
+        } else {
+          const baseVertex = triIndex * 3;
+          vA.fromBufferAttribute(posAttr, baseVertex);
+          vB.fromBufferAttribute(posAttr, baseVertex + 1);
+          vC.fromBufferAttribute(posAttr, baseVertex + 2);
+        }
+
+        edge1.subVectors(vB, vA);
+        edge2.subVectors(vC, vA);
+        faceNormal.crossVectors(edge1, edge2).normalize();
+        avgNormal.add(faceNormal);
       }
 
-      edge1.subVectors(vB, vA);
-      edge2.subVectors(vC, vA);
-      faceNormal.crossVectors(edge1, edge2).normalize();
-
-      normals.push(faceNormal.clone());
+      normals.push(avgNormal.normalize());
     }
 
     return normals;
