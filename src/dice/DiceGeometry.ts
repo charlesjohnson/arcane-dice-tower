@@ -15,9 +15,12 @@ export function createDiceGeometry(type: DiceType): THREE.BufferGeometry {
     case 'd8':
       return addFaceGroupsAndUVs(new THREE.OctahedronGeometry(r), config.faceCount);
     case 'd10':
-    case 'd100':
+    case 'd100': {
       // D10 is indexed; convert to non-indexed so we can assign per-face UVs
-      return addD10FaceGroupsAndUVs(createD10Geometry(r).toNonIndexed(), config.faceCount);
+      // and flat per-face normals (each kite face lit uniformly).
+      const d10Geo = createD10Geometry(r).toNonIndexed();
+      return addD10FaceGroupsAndUVs(d10Geo, config.faceCount);
+    }
     case 'd12':
       return addFaceGroupsAndUVs(new THREE.DodecahedronGeometry(r), config.faceCount);
     case 'd20':
@@ -141,6 +144,7 @@ function addD10FaceGroupsAndUVs(
   const vertexCount = posAttr.count;
   const verticesPerFace = vertexCount / faceCount;
   const uvs = new Float32Array(vertexCount * 2);
+  const normals = new Float32Array(vertexCount * 3);
 
   const TOP_UV: [number, number] = [0.5, 0.9];
   const BOT_UV: [number, number] = [0.5, 0.1];
@@ -151,6 +155,27 @@ function addD10FaceGroupsAndUVs(
   for (let face = 0; face < faceCount; face++) {
     const start = face * verticesPerFace;
     geometry.addGroup(start, verticesPerFace, face);
+
+    // Compute flat face normal: average of all triangle normals in this face.
+    // Individual triangles tilt toward their apex (upper ones point up-outward,
+    // lower ones down-outward), but the averaged normal points straight outward
+    // so the entire kite face is lit uniformly.
+    const faceNormal = new THREE.Vector3();
+    for (let t = 0; t < verticesPerFace; t += 3) {
+      const v0 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t);
+      const v1 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t + 1);
+      const v2 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t + 2);
+      const e1 = new THREE.Vector3().subVectors(v1, v0);
+      const e2 = new THREE.Vector3().subVectors(v2, v0);
+      faceNormal.add(new THREE.Vector3().crossVectors(e1, e2).normalize());
+    }
+    faceNormal.normalize();
+
+    for (let v = 0; v < verticesPerFace; v++) {
+      normals[(start + v) * 3] = faceNormal.x;
+      normals[(start + v) * 3 + 1] = faceNormal.y;
+      normals[(start + v) * 3 + 2] = faceNormal.z;
+    }
 
     // Face outward direction (midway between adjacent mid-ring vertices)
     const faceAngle = (face + 0.5) * Math.PI * 2 / faceCount;
@@ -192,6 +217,7 @@ function addD10FaceGroupsAndUVs(
   }
 
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   return geometry;
 }
 
@@ -247,6 +273,8 @@ function createD10Geometry(radius: number): THREE.BufferGeometry {
     new THREE.Float32BufferAttribute(vertices, 3)
   );
   geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+  // Normals are computed as flat per-face normals in addD10FaceGroupsAndUVs
+  // after toNonIndexed() — not here, where shared vertices would produce
+  // smooth-averaged normals that make the die look spherical.
   return geometry;
 }

@@ -189,6 +189,39 @@ describe('createDiceGeometry', () => {
     }
   });
 
+  it('d10 vertex normals are flat per face (not smooth-shaded)', () => {
+    const geo = createDiceGeometry('d10');
+    const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
+    const normalAttr = geo.getAttribute('normal') as THREE.BufferAttribute;
+    const faceCount = 10;
+    const verticesPerFace = posAttr.count / faceCount;
+
+    for (let face = 0; face < faceCount; face++) {
+      const start = face * verticesPerFace;
+
+      // Compute the geometric face normal (average of triangle cross products)
+      const geoNormal = new THREE.Vector3();
+      for (let t = 0; t < verticesPerFace; t += 3) {
+        const v0 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t);
+        const v1 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t + 1);
+        const v2 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t + 2);
+        const e1 = new THREE.Vector3().subVectors(v1, v0);
+        const e2 = new THREE.Vector3().subVectors(v2, v0);
+        geoNormal.add(new THREE.Vector3().crossVectors(e1, e2).normalize());
+      }
+      geoNormal.normalize();
+
+      // Every vertex normal in the face must align with the geometric face normal.
+      // With flat normals: dot ≈ 1.0 (per-triangle normals nearly match face avg).
+      // With smooth normals: apex vertices get averaged normal ≈ (0,±1,0),
+      // which diverges badly from the outward-facing geometric normal.
+      for (let v = 0; v < verticesPerFace; v++) {
+        const vn = new THREE.Vector3().fromBufferAttribute(normalAttr, start + v);
+        expect(vn.dot(geoNormal)).toBeGreaterThan(0.95);
+      }
+    }
+  });
+
   it('d10 findUpwardFaceIndex correctly identifies every face', () => {
     const geo = createDiceGeometry('d10');
     const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
