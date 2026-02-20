@@ -110,12 +110,17 @@ describe('createDiceGeometry', () => {
 
     function faceNormal(face: number): THREE.Vector3 {
       const start = face * verticesPerFace;
-      const v0 = new THREE.Vector3().fromBufferAttribute(pos, start);
-      const v1 = new THREE.Vector3().fromBufferAttribute(pos, start + 1);
-      const v2 = new THREE.Vector3().fromBufferAttribute(pos, start + 2);
-      const e1 = new THREE.Vector3().subVectors(v1, v0);
-      const e2 = new THREE.Vector3().subVectors(v2, v0);
-      return new THREE.Vector3().crossVectors(e1, e2).normalize();
+      // Average normals of both triangles (kite faces are slightly non-planar)
+      const normal = new THREE.Vector3();
+      for (let t = 0; t < verticesPerFace; t += 3) {
+        const v0 = new THREE.Vector3().fromBufferAttribute(pos, start + t);
+        const v1 = new THREE.Vector3().fromBufferAttribute(pos, start + t + 1);
+        const v2 = new THREE.Vector3().fromBufferAttribute(pos, start + t + 2);
+        const e1 = new THREE.Vector3().subVectors(v1, v0);
+        const e2 = new THREE.Vector3().subVectors(v2, v0);
+        normal.add(new THREE.Vector3().crossVectors(e1, e2));
+      }
+      return normal.normalize();
     }
 
     for (let i = 0; i < 5; i++) {

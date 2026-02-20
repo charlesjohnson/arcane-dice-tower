@@ -16,7 +16,7 @@ export function createDiceGeometry(type: DiceType): THREE.BufferGeometry {
       return addFaceGroupsAndUVs(new THREE.OctahedronGeometry(r), config.faceCount);
     case 'd10':
     case 'd100':
-      throw new Error('D10 geometry not yet implemented');
+      return addFaceGroupsAndUVs(createD10Geometry(r), config.faceCount);
     case 'd12':
       return addFaceGroupsAndUVs(new THREE.DodecahedronGeometry(r), config.faceCount);
     case 'd20':
@@ -120,6 +120,83 @@ function addFaceGroupsAndUVs(
   }
 
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  return geometry;
+}
+
+function createD10Geometry(radius: number): THREE.BufferGeometry {
+  // Pentagonal trapezohedron as dual of regular pentagonal antiprism.
+  // Antiprism: two rings of 5 vertices, offset by π/5, at heights ±h.
+  // Dual: face centroids become equatorial vertices, cap centroids become poles.
+  const R = 1;
+  const h = R / 2; // half-height for regular pentagonal antiprism
+
+  // Antiprism vertices
+  const topRing: [number, number, number][] = [];
+  const bottomRing: [number, number, number][] = [];
+  for (let i = 0; i < 5; i++) {
+    const topAngle = (2 * Math.PI * i) / 5;
+    topRing.push([R * Math.cos(topAngle), h, R * Math.sin(topAngle)]);
+    const botAngle = topAngle + Math.PI / 5;
+    bottomRing.push([R * Math.cos(botAngle), -h, R * Math.sin(botAngle)]);
+  }
+
+  // Dual vertices: 2 poles + 10 equatorial (triangle face centroids)
+  const topPole: [number, number, number] = [0, h, 0];
+  const bottomPole: [number, number, number] = [0, -h, 0];
+
+  // eq[2i]   = centroid of upper triangle (T_i, B_i, T_{i+1})
+  // eq[2i+1] = centroid of lower triangle (B_i, T_{i+1}, B_{i+1})
+  const eq: [number, number, number][] = [];
+  for (let i = 0; i < 5; i++) {
+    const next = (i + 1) % 5;
+    eq.push([
+      (topRing[i][0] + bottomRing[i][0] + topRing[next][0]) / 3,
+      (topRing[i][1] + bottomRing[i][1] + topRing[next][1]) / 3,
+      (topRing[i][2] + bottomRing[i][2] + topRing[next][2]) / 3,
+    ]);
+    eq.push([
+      (bottomRing[i][0] + topRing[next][0] + bottomRing[next][0]) / 3,
+      (bottomRing[i][1] + topRing[next][1] + bottomRing[next][1]) / 3,
+      (bottomRing[i][2] + topRing[next][2] + bottomRing[next][2]) / 3,
+    ]);
+  }
+
+  // Scale all vertices so circumradius matches the desired radius
+  const allVerts = [topPole, bottomPole, ...eq];
+  let maxDist = 0;
+  for (const v of allVerts) {
+    maxDist = Math.max(maxDist, Math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2));
+  }
+  const scale = radius / maxDist;
+  for (const v of allVerts) {
+    v[0] *= scale;
+    v[1] *= scale;
+    v[2] *= scale;
+  }
+
+  // Build 10 kite faces, each split into 2 triangles along the symmetry axis.
+  // Face 2k   (top-pole kite):    topPole,    eq[2k], eq[2k-1], eq[2k-2]
+  // Face 2k+1 (bottom-pole kite): bottomPole, eq[2k-1], eq[2k], eq[2k+1]
+  // Winding produces outward-facing normals.
+  const vertices: number[] = [];
+  const e = (j: number) => eq[((j % 10) + 10) % 10];
+
+  for (let f = 0; f < 10; f++) {
+    const isTop = f % 2 === 0;
+    const pole = isTop ? topPole : bottomPole;
+    const mid = e(f - 1);
+    const wing1 = isTop ? e(f) : e(f - 2);
+    const wing2 = isTop ? e(f - 2) : e(f);
+
+    // Triangle 1: pole, wing1, mid
+    vertices.push(...pole, ...wing1, ...mid);
+    // Triangle 2: pole, mid, wing2
+    vertices.push(...pole, ...mid, ...wing2);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.computeVertexNormals();
   return geometry;
 }
 
