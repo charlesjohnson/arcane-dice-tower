@@ -109,12 +109,13 @@ describe('Tower physics containment', () => {
 
     const bodies = (physics.world as unknown as { bodies: CANNON.Body[] }).bodies;
 
-    // The front wall starts above y=2 to allow the ramp-to-tray exit.
-    // Baffles must extend close enough to the front wall in z that dice
-    // can't fit through the gap during the baffle zig-zag phase.
+    // The front wall starts above y=2.5 to allow the ramp-to-tray exit.
+    // Only baffles above the front wall's bottom edge need to be close to
+    // the front wall. The bottom baffle (y=1.2) is below the front wall
+    // and intentionally has a shorter depth to avoid trapping ramp dice.
     const baffleBodies = bodies.filter((b: CANNON.Body) => {
       if (b.mass !== 0) return false;
-      if (b.position.y < 1.0 || b.position.y > 7.5) return false;
+      if (b.position.y < 2.0 || b.position.y > 7.5) return false;
       return Math.abs(b.quaternion.z) > 0.01;
     });
 

@@ -16,12 +16,17 @@ export function createDiceBody(type: DiceType): CANNON.Body {
     mass: config.mass,
     shape: createCollisionShape(actualType, config.radius),
     material: DICE_MATERIAL,
-    linearDamping: 0.5,
+    linearDamping: 0.45,
     angularDamping: 0.5,
   });
 
   body.allowSleep = true;
-  body.sleepSpeedLimit = 0.05;
+  // Low threshold so dice on the ramp (speed ~0.03–0.05) don't go to
+  // sleep and can still wake neighbouring dice on contact. cannon-es
+  // only wakes a sleeping body when the touching body's speed exceeds
+  // sleepSpeedLimit * √2 ≈ 0.014, so a slow-sliding ramp die at 0.03
+  // can wake tray dice that would otherwise act as immovable walls.
+  body.sleepSpeedLimit = 0.01;
   body.sleepTimeLimit = 0.5;
 
   return body;
@@ -70,10 +75,9 @@ export function applyRandomRollForce(body: CANNON.Body): void {
   body.angularVelocity.set(angX, angY, angZ);
 
   // Small random position jitter so stacked dice don't overlap.
-  // Centered on both axes — the invisible front wall keeps dice
-  // from escaping forward, so no backward bias is needed.
-  const offsetX = (Math.random() - 0.5) * 0.3;
-  const offsetZ = (Math.random() - 0.5) * 0.3;
+  // Kept to ±0.1 to maintain clearance from tower walls at max spread.
+  const offsetX = (Math.random() - 0.5) * 0.2;
+  const offsetZ = (Math.random() - 0.5) * 0.2;
   body.position.x += offsetX;
   body.position.z += offsetZ;
 }

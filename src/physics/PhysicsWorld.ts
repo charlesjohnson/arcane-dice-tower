@@ -3,7 +3,7 @@ import { GSSolver } from 'cannon-es';
 
 export const VELOCITY_THRESHOLD = 0.05;
 export const ANGULAR_VELOCITY_THRESHOLD = 0.1;
-const SOLVER_ITERATIONS = 10;
+const SOLVER_ITERATIONS = 15;
 
 export class PhysicsWorld {
   readonly world: CANNON.World;
@@ -13,9 +13,12 @@ export class PhysicsWorld {
     this.world = new CANNON.World({
       gravity: new CANNON.Vec3(0, -9.82, 0),
     });
-    this.world.broadphase = new CANNON.SAPBroadphase(this.world);
+    // NaiveBroadphase checks all pairs — reliable with our small body count
+    // (~17 bodies). SAPBroadphase misses sphere-box collisions when multiple
+    // dice interact near walls, causing dice to tunnel through.
+    this.world.broadphase = new CANNON.NaiveBroadphase();
     this.world.allowSleep = true;
-    this.world.defaultContactMaterial.friction = 0.3;
+    this.world.defaultContactMaterial.friction = 0.2;
     this.world.defaultContactMaterial.restitution = 0.3;
     const solver = new GSSolver();
     solver.iterations = SOLVER_ITERATIONS;

@@ -98,13 +98,18 @@ export function buildTower(
   // to enter). The front wall uses a low-friction ContactMaterial so dice
   // touching it while on a baffle still slide off the slope.
   const baffleHalfZ = 1.4; // flush with back wall, front gap < die radius
-  const baffleCenterZ = -(TOWER_RADIUS - COLLISION_WALL_HALF) + baffleHalfZ; // -0.65
+  const baffleCenterZ = -(TOWER_RADIUS - COLLISION_WALL_HALF) + baffleHalfZ; // -0.1
   const baffleGeo = new THREE.BoxGeometry(TOWER_RADIUS * 0.8, 0.1, baffleHalfZ * 2);
+  // Bottom baffle is shorter in Z so its front edge (z≈0.1) doesn't extend
+  // into the ramp zone where dice slide. Without this, dice bouncing off
+  // tray dice wedge between the baffle edge and ramp surface at z≈0.5-1.3.
+  const bottomBaffleHalfZ = 0.8;
+  const bottomBaffleCenterZ = -(TOWER_RADIUS - COLLISION_WALL_HALF) + bottomBaffleHalfZ; // -0.7
   const bafflePositions = [
-    { x: 0.8, y: 7.0, z: baffleCenterZ, rotZ: 0.55 },
-    { x: -0.8, y: 5.0, z: baffleCenterZ, rotZ: -0.55 },
-    { x: 0.85, y: 3.0, z: baffleCenterZ, rotZ: 0.55 },
-    { x: -0.75, y: 1.2, z: baffleCenterZ, rotZ: -0.50 },
+    { x: 0.8, y: 7.0, z: baffleCenterZ, rotZ: 0.55, halfZ: baffleHalfZ },
+    { x: -0.8, y: 5.0, z: baffleCenterZ, rotZ: -0.55, halfZ: baffleHalfZ },
+    { x: 0.85, y: 3.0, z: baffleCenterZ, rotZ: 0.55, halfZ: baffleHalfZ },
+    { x: -0.75, y: 1.2, z: bottomBaffleCenterZ, rotZ: -0.50, halfZ: bottomBaffleHalfZ },
   ];
 
   // Frictionless baffles: cannon-es's box-box friction solver applies
@@ -124,7 +129,10 @@ export function buildTower(
   ));
 
   for (const bp of bafflePositions) {
-    const baffle = new THREE.Mesh(baffleGeo, ivoryMaterial.clone());
+    const geo = bp.halfZ === baffleHalfZ
+      ? baffleGeo
+      : new THREE.BoxGeometry(TOWER_RADIUS * 0.8, 0.1, bp.halfZ * 2);
+    const baffle = new THREE.Mesh(geo, ivoryMaterial.clone());
     baffle.position.set(bp.x, bp.y, bp.z);
     baffle.rotation.z = bp.rotZ;
     baffle.castShadow = true;
@@ -136,7 +144,7 @@ export function buildTower(
     const halfExtents = new CANNON.Vec3(
       TOWER_RADIUS * 0.4,
       0.05,
-      baffleHalfZ
+      bp.halfZ
     );
     const baffleBody = new CANNON.Body({
       mass: 0,
@@ -161,6 +169,14 @@ export function buildTower(
 
   physics.world.addContactMaterial(new CANNON.ContactMaterial(
     DICE_MATERIAL, rampSurfaceMaterial, { friction: 0, restitution: 0.3 }
+  ));
+
+  // Zero dice-to-dice friction prevents ramp dice from getting pinned
+  // against tray dice that have already settled. cannon-es's constraint
+  // solver can amplify even tiny friction values (0.05) into forces large
+  // enough to hold a die stationary on a sloped surface.
+  physics.world.addContactMaterial(new CANNON.ContactMaterial(
+    DICE_MATERIAL, DICE_MATERIAL, { friction: 0, restitution: 0.3 }
   ));
 
   const rampDepth = TOWER_RADIUS * 2;
@@ -216,8 +232,8 @@ export function buildTower(
   floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // face upward
   physics.addStaticBody(floorBody);
 
-  // Tray walls (left, right, back, front) — tall enough for dice to stack
-  const TRAY_WALL_HEIGHT = 1.5;
+  // Tray walls (left, right, back, front) — tall enough for bouncing dice
+  const TRAY_WALL_HEIGHT = 3.5;
   const trayWallHalfY = TRAY_WALL_HEIGHT / 2;
   const trayWallCenterY = trayFloorY + trayWallHalfY;
 
@@ -245,9 +261,8 @@ export function buildTower(
   // No front wall — the tray opening at z=TOWER_RADIUS is where dice enter from the ramp.
   // Physics bodies are thicker than visual walls (same approach as tower walls)
   // so the solver has enough margin when dice pile up against the walls.
-  // Uses a moderate 0.3 half-extent instead of COLLISION_WALL_HALF (0.5) to
-  // avoid narrowing the ramp-to-tray passage.
-  const TRAY_WALL_COLLISION_HALF = 0.3;
+  // Thick enough to prevent tunneling when dice pile up against walls.
+  const TRAY_WALL_COLLISION_HALF = 0.5;
   const trayWallPositions = [
     { pos: [-TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [TRAY_WALL_COLLISION_HALF, trayWallHalfY, TRAY_DEPTH / 2] as const },
     { pos: [TRAY_WIDTH / 2, trayWallCenterY, TOWER_RADIUS + TRAY_DEPTH / 2] as const, half: [TRAY_WALL_COLLISION_HALF, trayWallHalfY, TRAY_DEPTH / 2] as const },
@@ -280,12 +295,14 @@ export function buildTower(
   backBody.position.set(0, TOWER_HEIGHT / 2, -TOWER_RADIUS);
   physics.addStaticBody(backBody);
 
+  // Side walls use frictionless material so dice touching a wall while on the
+  // ramp (or a baffle) slide freely instead of stalling from wall friction.
   const sideHalf = new CANNON.Vec3(COLLISION_WALL_HALF, TOWER_HEIGHT / 2, TOWER_RADIUS);
-  const leftBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(sideHalf) });
+  const leftBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(sideHalf), material: rampSurfaceMaterial });
   leftBody.position.set(-TOWER_RADIUS, TOWER_HEIGHT / 2, 0);
   physics.addStaticBody(leftBody);
 
-  const rightBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(sideHalf) });
+  const rightBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(sideHalf), material: rampSurfaceMaterial });
   rightBody.position.set(TOWER_RADIUS, TOWER_HEIGHT / 2, 0);
   physics.addStaticBody(rightBody);
 
@@ -307,6 +324,15 @@ export function buildTower(
   });
   frontBody.position.set(0, TOWER_HEIGHT - frontWallHeight / 2, TOWER_RADIUS);
   physics.addStaticBody(frontBody);
+
+  // Invisible ceiling prevents dice from escaping upward when inter-dice
+  // collisions launch them above the wall tops. Physics-only, no visual.
+  const ceilingBody = new CANNON.Body({
+    mass: 0,
+    shape: new CANNON.Box(new CANNON.Vec3(TOWER_RADIUS, COLLISION_WALL_HALF, TOWER_RADIUS)),
+  });
+  ceilingBody.position.set(0, TOWER_HEIGHT + COLLISION_WALL_HALF, 0);
+  physics.addStaticBody(ceilingBody);
 
   // --- Interior lights: one under each baffle + one above the top ---
   // Each light sits just below its baffle, illuminating the gap beneath it.
@@ -339,6 +365,6 @@ export function buildTower(
     runeGlowMeshes,
     interiorLights,
     trayFloorY,
-    dropPosition: new THREE.Vector3(0, TOWER_HEIGHT - 1.5, 0),
+    dropPosition: new THREE.Vector3(0, TOWER_HEIGHT - 2.5, 0),
   };
 }
