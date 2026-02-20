@@ -146,6 +146,26 @@ describe('createDiceGeometry', () => {
     }
   });
 
+  it('d10 kite long edge / short edge ≈ golden ratio', () => {
+    const geo = createDiceGeometry('d10');
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const verticesPerFace = 6;
+    const PHI = (1 + Math.sqrt(5)) / 2;
+
+    // Extract the 4 unique kite corners from face 0
+    const start = 0;
+    const pole = new THREE.Vector3().fromBufferAttribute(pos, start);
+    const wing1 = new THREE.Vector3().fromBufferAttribute(pos, start + 1);
+    const mid = new THREE.Vector3().fromBufferAttribute(pos, start + 2);
+    const wing2 = new THREE.Vector3().fromBufferAttribute(pos, start + 5);
+
+    // Long edges: pole to wings. Short edges: mid to wings.
+    const longEdge = pole.distanceTo(wing1);
+    const shortEdge = mid.distanceTo(wing1);
+
+    expect(longEdge / shortEdge).toBeCloseTo(PHI, 2);
+  });
+
   it.each(['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as const)(
     '%s has all triangle normals pointing outward',
     (type) => {

@@ -124,41 +124,25 @@ function addFaceGroupsAndUVs(
 }
 
 function createD10Geometry(radius: number): THREE.BufferGeometry {
-  // Pentagonal trapezohedron as dual of regular pentagonal antiprism.
-  // Antiprism: two rings of 5 vertices, offset by π/5, at heights ±h.
-  // Dual: face centroids become equatorial vertices, cap centroids become poles.
-  const R = 1;
-  const h = R / 2; // half-height for regular pentagonal antiprism
+  // Direct pentagonal trapezohedron construction.
+  // 2 poles on the Y axis, 2 rings of 5 equatorial vertices offset by π/5.
+  // Golden ratio constraint: long edge (pole→ring) = φ × short edge (ring→ring).
+  // H = d(2+√5) satisfies this, and d = r/(2+√5) gives ≈1:1 aspect ratio.
+  const r = 1;
+  const d = r / (2 + Math.sqrt(5));
+  const H = d * (2 + Math.sqrt(5)); // = r
 
-  // Antiprism vertices
-  const topRing: [number, number, number][] = [];
-  const bottomRing: [number, number, number][] = [];
-  for (let i = 0; i < 5; i++) {
-    const topAngle = (2 * Math.PI * i) / 5;
-    topRing.push([R * Math.cos(topAngle), h, R * Math.sin(topAngle)]);
-    const botAngle = topAngle + Math.PI / 5;
-    bottomRing.push([R * Math.cos(botAngle), -h, R * Math.sin(botAngle)]);
-  }
+  const topPole: [number, number, number] = [0, H, 0];
+  const bottomPole: [number, number, number] = [0, -H, 0];
 
-  // Dual vertices: 2 poles + 10 equatorial (triangle face centroids)
-  const topPole: [number, number, number] = [0, h, 0];
-  const bottomPole: [number, number, number] = [0, -h, 0];
-
-  // eq[2i]   = centroid of upper triangle (T_i, B_i, T_{i+1})
-  // eq[2i+1] = centroid of lower triangle (B_i, T_{i+1}, B_{i+1})
+  // eq[2i]   = upper ring vertex (height +d, angle 2πi/5)
+  // eq[2i+1] = lower ring vertex (height -d, angle 2πi/5 + π/5)
   const eq: [number, number, number][] = [];
   for (let i = 0; i < 5; i++) {
-    const next = (i + 1) % 5;
-    eq.push([
-      (topRing[i][0] + bottomRing[i][0] + topRing[next][0]) / 3,
-      (topRing[i][1] + bottomRing[i][1] + topRing[next][1]) / 3,
-      (topRing[i][2] + bottomRing[i][2] + topRing[next][2]) / 3,
-    ]);
-    eq.push([
-      (bottomRing[i][0] + topRing[next][0] + bottomRing[next][0]) / 3,
-      (bottomRing[i][1] + topRing[next][1] + bottomRing[next][1]) / 3,
-      (bottomRing[i][2] + topRing[next][2] + bottomRing[next][2]) / 3,
-    ]);
+    const upperAngle = (2 * Math.PI * i) / 5;
+    eq.push([r * Math.cos(upperAngle), d, r * Math.sin(upperAngle)]);
+    const lowerAngle = upperAngle + Math.PI / 5;
+    eq.push([r * Math.cos(lowerAngle), -d, r * Math.sin(lowerAngle)]);
   }
 
   // Scale all vertices so circumradius matches the desired radius
