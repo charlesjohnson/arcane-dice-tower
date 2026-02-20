@@ -67,60 +67,104 @@ describe('createDiceGeometry', () => {
     }
   );
 
-  it('d10 mid-ring vertices have symmetric V coordinates across each kite face', () => {
+  it('d10 has 60 vertices (10 kite faces × 2 triangles × 3 vertices)', () => {
     const geo = createDiceGeometry('d10');
-    const uvAttr = geo.getAttribute('uv') as THREE.BufferAttribute;
-    const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
-    const faceCount = 10;
-    const verticesPerFace = posAttr.count / faceCount;
-    const r = DICE_CONFIGS.d10.radius;
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    expect(pos.count).toBe(60);
+  });
 
-    for (let face = 0; face < faceCount; face++) {
+  it('d10 has 10 congruent kite faces (same edge lengths)', () => {
+    const geo = createDiceGeometry('d10');
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const verticesPerFace = 6; // 2 triangles × 3 vertices
+
+    function getEdgeLengths(face: number): number[] {
       const start = face * verticesPerFace;
+      // Two triangles per kite: (pole, wing1, mid) and (pole, mid, wing2)
+      const pole = new THREE.Vector3().fromBufferAttribute(pos, start);
+      const wing1 = new THREE.Vector3().fromBufferAttribute(pos, start + 1);
+      const mid = new THREE.Vector3().fromBufferAttribute(pos, start + 2);
+      const wing2 = new THREE.Vector3().fromBufferAttribute(pos, start + 5);
+      // Kite edges: pole→wing1, wing1→mid, mid→wing2, wing2→pole
+      return [
+        pole.distanceTo(wing1),
+        wing1.distanceTo(mid),
+        mid.distanceTo(wing2),
+        wing2.distanceTo(pole),
+      ].sort((a, b) => a - b);
+    }
 
-      for (let v = 0; v < verticesPerFace; v++) {
-        const y = posAttr.getY(start + v);
-        // Mid-ring vertices (|y| much less than radius) should all be at V=0.5
-        if (Math.abs(y) < r * 0.5) {
-          expect(uvAttr.getY(start + v)).toBeCloseTo(0.5, 2);
-        }
+    const refEdges = getEdgeLengths(0);
+    for (let face = 1; face < 10; face++) {
+      const edges = getEdgeLengths(face);
+      for (let e = 0; e < 4; e++) {
+        expect(edges[e]).toBeCloseTo(refEdges[e], 5);
       }
     }
   });
 
-  it('d10 kite faces are subdivided into 4 triangles for better texture mapping', () => {
+  it('d10 opposite faces (i and i+5) have antiparallel normals', () => {
     const geo = createDiceGeometry('d10');
     const pos = geo.getAttribute('position') as THREE.BufferAttribute;
-    // 10 faces × 4 triangles × 3 vertices = 120
-    expect(pos.count).toBe(120);
+    const verticesPerFace = 6;
+
+    function faceNormal(face: number): THREE.Vector3 {
+      const start = face * verticesPerFace;
+      // Average normals of both triangles (kite faces are slightly non-planar)
+      const normal = new THREE.Vector3();
+      for (let t = 0; t < verticesPerFace; t += 3) {
+        const v0 = new THREE.Vector3().fromBufferAttribute(pos, start + t);
+        const v1 = new THREE.Vector3().fromBufferAttribute(pos, start + t + 1);
+        const v2 = new THREE.Vector3().fromBufferAttribute(pos, start + t + 2);
+        const e1 = new THREE.Vector3().subVectors(v1, v0);
+        const e2 = new THREE.Vector3().subVectors(v2, v0);
+        normal.add(new THREE.Vector3().crossVectors(e1, e2));
+      }
+      return normal.normalize();
+    }
+
+    for (let i = 0; i < 5; i++) {
+      const n1 = faceNormal(i);
+      const n2 = faceNormal(i + 5);
+      expect(n1.dot(n2)).toBeCloseTo(-1, 1);
+    }
   });
 
-  it('d10 UV mapping gives all triangles of each kite face meaningful area', () => {
+  it('d10 both triangles in each kite face share the same vertex normal', () => {
     const geo = createDiceGeometry('d10');
-    const uvAttr = geo.getAttribute('uv') as THREE.BufferAttribute;
-    const faceCount = 10;
-    const verticesPerFace = uvAttr.count / faceCount; // 6 (2 triangles × 3 verts)
+    const normalAttr = geo.getAttribute('normal') as THREE.BufferAttribute;
+    const verticesPerFace = 6;
 
-    for (let face = 0; face < faceCount; face++) {
+    for (let face = 0; face < 10; face++) {
       const start = face * verticesPerFace;
-
-      // Check each triangle in the face (2 per kite)
-      for (let t = 0; t < verticesPerFace; t += 3) {
-        const u0 = uvAttr.getX(start + t);
-        const v0 = uvAttr.getY(start + t);
-        const u1 = uvAttr.getX(start + t + 1);
-        const v1 = uvAttr.getY(start + t + 1);
-        const u2 = uvAttr.getX(start + t + 2);
-        const v2 = uvAttr.getY(start + t + 2);
-
-        // Triangle area in UV space via cross product
-        const area = 0.5 * Math.abs(
-          (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0)
-        );
-
-        // Both triangles must have real area (not degenerate slivers)
-        expect(area).toBeGreaterThan(0.01);
+      // All 6 vertices of this kite face should have the same normal
+      const refNormal = new THREE.Vector3().fromBufferAttribute(normalAttr, start);
+      for (let v = 1; v < verticesPerFace; v++) {
+        const n = new THREE.Vector3().fromBufferAttribute(normalAttr, start + v);
+        expect(refNormal.dot(n)).toBeCloseTo(1.0, 4);
       }
+    }
+  });
+
+  it('d10 kite faces are planar (all 4 vertices coplanar)', () => {
+    const geo = createDiceGeometry('d10');
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const verticesPerFace = 6;
+
+    for (let face = 0; face < 10; face++) {
+      const start = face * verticesPerFace;
+      const pole = new THREE.Vector3().fromBufferAttribute(pos, start);
+      const wing1 = new THREE.Vector3().fromBufferAttribute(pos, start + 1);
+      const mid = new THREE.Vector3().fromBufferAttribute(pos, start + 2);
+      const wing2 = new THREE.Vector3().fromBufferAttribute(pos, start + 5);
+
+      // Scalar triple product = 0 means coplanar
+      const e1 = new THREE.Vector3().subVectors(wing1, pole);
+      const e2 = new THREE.Vector3().subVectors(mid, pole);
+      const e3 = new THREE.Vector3().subVectors(wing2, pole);
+      const tripleProduct = e1.dot(new THREE.Vector3().crossVectors(e2, e3));
+
+      expect(Math.abs(tripleProduct)).toBeLessThan(1e-8);
     }
   });
 

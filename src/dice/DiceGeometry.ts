@@ -16,8 +16,7 @@ export function createDiceGeometry(type: DiceType): THREE.BufferGeometry {
       return addFaceGroupsAndUVs(new THREE.OctahedronGeometry(r), config.faceCount);
     case 'd10':
     case 'd100':
-      // D10 is indexed; convert to non-indexed so we can assign per-face UVs
-      return addD10FaceGroupsAndUVs(createD10Geometry(r).toNonIndexed(), config.faceCount);
+      return addFaceGroupsAndUVs(createD10Geometry(r), config.faceCount);
     case 'd12':
       return addFaceGroupsAndUVs(new THREE.DodecahedronGeometry(r), config.faceCount);
     case 'd20':
@@ -124,129 +123,90 @@ function addFaceGroupsAndUVs(
   return geometry;
 }
 
-/**
- * Assigns symmetric diamond UV coordinates to D10 kite faces.
- *
- * The generic planar projection produces an asymmetric UV diamond because
- * the kite faces are not perfectly planar (mid-ring vertices alternate in
- * height). The asymmetry causes different shear in each triangle half,
- * making face numbers appear wavy. This function forces a symmetric diamond
- * so both halves distort the texture identically.
- */
-function addD10FaceGroupsAndUVs(
-  geometry: THREE.BufferGeometry,
-  faceCount: number
-): THREE.BufferGeometry {
-  const posAttr = geometry.getAttribute('position');
-  const vertexCount = posAttr.count;
-  const verticesPerFace = vertexCount / faceCount;
-  const uvs = new Float32Array(vertexCount * 2);
-
-  const TOP_UV: [number, number] = [0.5, 0.9];
-  const BOT_UV: [number, number] = [0.5, 0.1];
-  const LEFT_UV: [number, number] = [0.35, 0.5];
-  const RIGHT_UV: [number, number] = [0.65, 0.5];
-  const CENTER_UV: [number, number] = [0.5, 0.5];
-
-  for (let face = 0; face < faceCount; face++) {
-    const start = face * verticesPerFace;
-    geometry.addGroup(start, verticesPerFace, face);
-
-    // Face outward direction (midway between adjacent mid-ring vertices)
-    const faceAngle = (face + 0.5) * Math.PI * 2 / faceCount;
-    // Tangent perpendicular to face normal in XZ plane: cross(Y, normal)
-    const tx = Math.sin(faceAngle);
-    const tz = -Math.cos(faceAngle);
-
-    // Apex threshold: midway between apex height and mid-ring height
-    let maxAbsY = 0;
-    for (let v = 0; v < verticesPerFace; v++) {
-      maxAbsY = Math.max(maxAbsY, Math.abs(posAttr.getY(start + v)));
-    }
-    const yThreshold = maxAbsY * 0.5;
-
-    for (let v = 0; v < verticesPerFace; v++) {
-      const idx = start + v;
-      let uv: [number, number];
-
-      if (v % 3 === 0) {
-        // Fan center vertex (equator midpoint) — first vertex of each triangle
-        uv = CENTER_UV;
-      } else {
-        const y = posAttr.getY(idx);
-        if (y > yThreshold) {
-          uv = TOP_UV;
-        } else if (y < -yThreshold) {
-          uv = BOT_UV;
-        } else {
-          // Mid-ring vertex: project onto face tangent to determine left/right
-          const x = posAttr.getX(idx);
-          const z = posAttr.getZ(idx);
-          uv = (x * tx + z * tz) > 0 ? RIGHT_UV : LEFT_UV;
-        }
-      }
-
-      uvs[idx * 2] = uv[0];
-      uvs[idx * 2 + 1] = uv[1];
-    }
-  }
-
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  return geometry;
-}
-
 function createD10Geometry(radius: number): THREE.BufferGeometry {
-  // Pentagonal trapezohedron: 22 vertices, 10 kite faces (40 triangles)
-  // Each kite is subdivided into 4 triangles via an equator midpoint vertex
-  // for better texture interpolation (reduces affine distortion on narrow kites).
+  // Direct pentagonal trapezohedron construction.
+  // 2 poles on the Y axis, 2 rings of 5 equatorial vertices offset by π/5.
+  // Planarity constraint: for kite faces to be truly planar, H/d = 5+2√5.
+  // With H = r this gives ≈1:1 aspect ratio matching real D10 dice.
+  const r = 1;
+  const d = r / (5 + 2 * Math.sqrt(5));
+  const H = d * (5 + 2 * Math.sqrt(5)); // = r
+
+  const topPole: [number, number, number] = [0, H, 0];
+  const bottomPole: [number, number, number] = [0, -H, 0];
+
+  // eq[2i]   = upper ring vertex (height +d, angle 2πi/5)
+  // eq[2i+1] = lower ring vertex (height -d, angle 2πi/5 + π/5)
+  const eq: [number, number, number][] = [];
+  for (let i = 0; i < 5; i++) {
+    const upperAngle = (2 * Math.PI * i) / 5;
+    eq.push([r * Math.cos(upperAngle), d, r * Math.sin(upperAngle)]);
+    const lowerAngle = upperAngle + Math.PI / 5;
+    eq.push([r * Math.cos(lowerAngle), -d, r * Math.sin(lowerAngle)]);
+  }
+
+  // Scale all vertices so circumradius matches the desired radius
+  const allVerts = [topPole, bottomPole, ...eq];
+  let maxDist = 0;
+  for (const v of allVerts) {
+    maxDist = Math.max(maxDist, Math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2));
+  }
+  const scale = radius / maxDist;
+  for (const v of allVerts) {
+    v[0] *= scale;
+    v[1] *= scale;
+    v[2] *= scale;
+  }
+
+  // Build 10 kite faces, each split into 2 triangles along the symmetry axis.
+  // Face 2k   (top-pole kite):    topPole,    eq[2k], eq[2k-1], eq[2k-2]
+  // Face 2k+1 (bottom-pole kite): bottomPole, eq[2k-1], eq[2k], eq[2k+1]
+  // Winding produces outward-facing normals.
   const vertices: number[] = [];
-  const indices: number[] = [];
+  const e = (j: number) => eq[((j % 10) + 10) % 10];
 
-  // Top and bottom apex
-  vertices.push(0, radius, 0); // index 0: top
-  vertices.push(0, -radius, 0); // index 1: bottom
+  for (let f = 0; f < 10; f++) {
+    const isTop = f % 2 === 0;
+    const pole = isTop ? topPole : bottomPole;
+    const mid = e(f - 1);
+    const wing1 = isTop ? e(f) : e(f - 2);
+    const wing2 = isTop ? e(f - 2) : e(f);
 
-  // 10 middle vertices in a zigzag ring
-  const heightOffset = radius * 0.105;
-  for (let i = 0; i < 10; i++) {
-    const angle = (i * Math.PI * 2) / 10;
-    const y = heightOffset * (i % 2 === 0 ? 1 : -1);
-    vertices.push(
-      Math.cos(angle) * radius,
-      y,
-      Math.sin(angle) * radius
-    );
-  }
-
-  // 10 equator midpoint vertices (one per face, midpoint of adjacent mid-ring vertices)
-  for (let i = 0; i < 10; i++) {
-    const curr = i + 2;
-    const next = ((i + 1) % 10) + 2;
-    vertices.push(
-      (vertices[curr * 3] + vertices[next * 3]) / 2,
-      (vertices[curr * 3 + 1] + vertices[next * 3 + 1]) / 2,
-      (vertices[curr * 3 + 2] + vertices[next * 3 + 2]) / 2
-    );
-  }
-
-  // Build faces: each kite = 4 triangles in a fan from equator midpoint
-  for (let i = 0; i < 10; i++) {
-    const curr = i + 2;
-    const next = ((i + 1) % 10) + 2;
-    const center = 12 + i;
-
-    indices.push(center, 0, next);   // upper-left
-    indices.push(center, next, 1);   // lower-left
-    indices.push(center, 1, curr);   // lower-right
-    indices.push(center, curr, 0);   // upper-right
+    // Triangle 1: pole, wing1, mid
+    vertices.push(...pole, ...wing1, ...mid);
+    // Triangle 2: pole, mid, wing2
+    vertices.push(...pole, ...mid, ...wing2);
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(vertices, 3)
-  );
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+  // Compute per-kite-face normals (averaged across both triangles) so each
+  // face renders flat. computeVertexNormals() would give per-triangle normals,
+  // creating visible creases because the kite faces are slightly non-planar.
+  const posAttr = geometry.getAttribute('position');
+  const normals = new Float32Array(posAttr.count * 3);
+  const verticesPerFace = 6;
+  for (let face = 0; face < 10; face++) {
+    const start = face * verticesPerFace;
+    const faceNormal = new THREE.Vector3();
+    for (let t = 0; t < verticesPerFace; t += 3) {
+      const v0 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t);
+      const v1 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t + 1);
+      const v2 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t + 2);
+      const e1 = new THREE.Vector3().subVectors(v1, v0);
+      const e2 = new THREE.Vector3().subVectors(v2, v0);
+      faceNormal.add(new THREE.Vector3().crossVectors(e1, e2));
+    }
+    faceNormal.normalize();
+    for (let v = 0; v < verticesPerFace; v++) {
+      normals[(start + v) * 3] = faceNormal.x;
+      normals[(start + v) * 3 + 1] = faceNormal.y;
+      normals[(start + v) * 3 + 2] = faceNormal.z;
+    }
+  }
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+
   return geometry;
 }
+
