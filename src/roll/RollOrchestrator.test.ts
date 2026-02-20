@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
-import { computeSpawnOffsetX, RollOrchestrator, MAX_CONCURRENT_DICE } from './RollOrchestrator';
+import { computeSpawnOffsetX, RollOrchestrator, MAX_CONCURRENT_DICE, MAX_TRAY_DICE } from './RollOrchestrator';
 import type { RollResult } from './RollOrchestrator';
 import { createDiceBody, applyRandomRollForce } from '../dice/DiceBody';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
@@ -89,18 +89,20 @@ describe('Batch dice rolling', () => {
 
   it('spawns next batch after first batch settles, stays rolling', () => {
     const { orchestrator, scene, physics } = createOrchestrator();
-    const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+    // Use enough dice to need batching but stay within MAX_TRAY_DICE
+    const batchCount = Math.min(MAX_TRAY_DICE, MAX_CONCURRENT_DICE * 2);
+    const dice = Array(batchCount).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
     orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
-    expect(scene.children.length).toBe(4);
+    expect(scene.children.length).toBe(MAX_CONCURRENT_DICE);
 
     // Settle the first batch
     zeroAllVelocities(physics);
     orchestrator.update(1.1);
 
-    // Second batch should now be spawned (8 total in scene)
-    expect(scene.children.length).toBe(8);
+    // Second batch should now be spawned
+    expect(scene.children.length).toBe(batchCount);
     // State should still be rolling (more dice to process)
     expect(orchestrator.getState()).toBe('rolling');
   });
@@ -213,24 +215,26 @@ describe('Batch dice rolling', () => {
 
     it('pauses until spawnNextBatch is called externally', () => {
       const { orchestrator, scene, physics } = createOrchestrator();
-      const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+      // Use dice count that fits in tray without clearing
+      const batchCount = Math.min(MAX_TRAY_DICE, MAX_CONCURRENT_DICE * 2);
+      const dice = Array(batchCount).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
       orchestrator.onBatchReady(() => {
         // Don't call spawnNextBatch yet
       });
       orchestrator.roll(dice);
-      expect(scene.children.length).toBe(4);
+      expect(scene.children.length).toBe(MAX_CONCURRENT_DICE);
 
       // Settle first batch
       zeroAllVelocities(physics);
       orchestrator.update(1.1);
 
-      // Still only 4 dice (paused)
-      expect(scene.children.length).toBe(4);
+      // Still only first batch (paused)
+      expect(scene.children.length).toBe(MAX_CONCURRENT_DICE);
 
       // Now externally trigger next batch
       orchestrator.spawnNextBatch();
-      expect(scene.children.length).toBe(8);
+      expect(scene.children.length).toBe(batchCount);
     });
 
     it('fires onBatchReady only once per batch settlement', () => {
@@ -254,7 +258,9 @@ describe('Batch dice rolling', () => {
 
   it('resets settle timer between batches', () => {
     const { orchestrator, scene, physics } = createOrchestrator();
-    const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+    // Use dice count that fits in tray without clearing
+    const batchCount = Math.min(MAX_TRAY_DICE, MAX_CONCURRENT_DICE * 2);
+    const dice = Array(batchCount).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
     orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
@@ -262,7 +268,7 @@ describe('Batch dice rolling', () => {
     // Settle first batch
     zeroAllVelocities(physics);
     orchestrator.update(1.1);
-    expect(scene.children.length).toBe(8);
+    expect(scene.children.length).toBe(batchCount);
 
     // Call update with small delta - should NOT settle yet (timer was reset)
     zeroAllVelocities(physics);
@@ -276,25 +282,23 @@ describe('Batch dice rolling', () => {
 });
 
 describe('Tray overflow clearing', () => {
-  it('clears tray when spawning next batch would exceed 8 dice', () => {
+  it(`clears tray when spawning next batch would exceed ${MAX_TRAY_DICE} dice`, () => {
     const { orchestrator, scene, physics } = createOrchestrator();
-    // 12 dice = 3 batches of 4. After batches 1+2 (8 dice), before batch 3 clear.
-    const dice = Array(12).fill('d6') as import('../dice/DiceConfig').DiceType[];
+    // Need enough dice that batch1+batch2 > MAX_TRAY_DICE, triggering clear before batch2.
+    // With MAX_CONCURRENT_DICE=4 and MAX_TRAY_DICE=6: 8 dice = 2 batches of 4.
+    // batch1(4) + batch2(4) = 8 > 6, so clear happens before batch2.
+    const diceCount = MAX_CONCURRENT_DICE * 2;
+    const dice = Array(diceCount).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
     orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
-    expect(scene.children.length).toBe(4); // batch 1
+    expect(scene.children.length).toBe(MAX_CONCURRENT_DICE); // batch 1
 
-    // Settle batch 1
+    // Settle batch 1 — should trigger clear before spawning batch 2
     zeroAllVelocities(physics);
     orchestrator.update(1.1);
-    expect(scene.children.length).toBe(8); // batch 1 + batch 2
-
-    // Settle batch 2 — should trigger clear before spawning batch 3
-    zeroAllVelocities(physics);
-    orchestrator.update(1.1);
-    // After clear: 8 dice removed, 4 new spawned = 4 in scene
-    expect(scene.children.length).toBe(4);
+    // After clear: previous dice removed, batch 2 spawned
+    expect(scene.children.length).toBe(MAX_CONCURRENT_DICE);
   });
 
   it('fires subtotal callback when clearing tray mid-roll', () => {
@@ -361,25 +365,31 @@ describe('Tray overflow clearing', () => {
     expect(subtotalValue).toBeLessThan(finalResult!.total);
   });
 
-  it('does not clear tray when total dice would stay at or below 8', () => {
+  it(`does not clear tray when total dice would stay at or below ${MAX_TRAY_DICE}`, () => {
     const { orchestrator, scene, physics } = createOrchestrator();
-    // 8 dice = 2 batches of 4. After batch 1 (4 dice), spawning 4 more = 8, no clear needed.
-    const dice = Array(8).fill('d6') as import('../dice/DiceConfig').DiceType[];
+    // Use MAX_TRAY_DICE dice split into batches that fit without clearing.
+    // batch1(4) + batch2(remaining) <= MAX_TRAY_DICE
+    const diceCount = MAX_TRAY_DICE;
+    const dice = Array(diceCount).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
     orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(dice);
-    expect(scene.children.length).toBe(4);
+    expect(scene.children.length).toBe(MAX_CONCURRENT_DICE);
 
     // Settle batch 1
     zeroAllVelocities(physics);
     orchestrator.update(1.1);
-    // All 8 dice should be in scene — no clearing happened
-    expect(scene.children.length).toBe(8);
+    // All dice should be in scene — no clearing happened
+    expect(scene.children.length).toBe(diceCount);
   });
 
   it('resets subtotal between separate rolls', () => {
     const { orchestrator, physics } = createOrchestrator();
-    const dice = Array(12).fill('d6') as import('../dice/DiceConfig').DiceType[];
+    // Use enough dice to trigger at least one tray clear per roll.
+    // With MAX_TRAY_DICE=6, MAX_CONCURRENT_DICE=4: 8 dice = batch1(4)+batch2(4).
+    // batch1(4)+batch2(4) = 8 > 6 → clear once per roll.
+    const diceCount = MAX_CONCURRENT_DICE * 2;
+    const dice = Array(diceCount).fill('d6') as import('../dice/DiceConfig').DiceType[];
 
     const subtotals: number[] = [];
     orchestrator.onSubtotalUpdate((subtotal: number) => {
@@ -393,8 +403,6 @@ describe('Tray overflow clearing', () => {
     orchestrator.update(1.1);
     zeroAllVelocities(physics);
     orchestrator.update(1.1);
-    zeroAllVelocities(physics);
-    orchestrator.update(1.1);
 
     // Second roll — subtotal should start from 0
     orchestrator.roll(dice);
@@ -402,10 +410,8 @@ describe('Tray overflow clearing', () => {
     orchestrator.update(1.1);
     zeroAllVelocities(physics);
     orchestrator.update(1.1);
-    zeroAllVelocities(physics);
-    orchestrator.update(1.1);
 
-    // Both rolls should have fired subtotal callbacks
+    // Both rolls should have fired subtotal callbacks (one clear per roll)
     expect(subtotals.length).toBe(2);
   });
 });

@@ -30,8 +30,8 @@ type SubtotalListener = (subtotal: number) => void;
 
 const SETTLE_WAIT_TIME = 1.0; // seconds to wait before checking settlement
 export const MAX_CONCURRENT_DICE = 4;
-export const MAX_TRAY_DICE = 8;
-const MAX_SPREAD_X = 1.2; // TOWER_RADIUS (2.0) - die radius (0.6) - margin (0.2)
+export const MAX_TRAY_DICE = 6;
+const MAX_SPREAD_X = 0.7; // wallInner(1.5) - die radius(0.6) - jitter(0.1) - margin(0.1)
 
 /** Compute the clamped horizontal offset for the i-th die out of total. */
 export function computeSpawnOffsetX(index: number, total: number): number {
@@ -152,7 +152,7 @@ export class RollOrchestrator {
       const body = createDiceBody(type);
 
       const offsetX = computeSpawnOffsetX(i, batch.length);
-      const offsetY = i * 0.5;
+      const offsetY = i * 0.3;
       body.position.set(
         dropPos.x + offsetX,
         dropPos.y + offsetY,
