@@ -196,7 +196,33 @@ function createD10Geometry(radius: number): THREE.BufferGeometry {
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geometry.computeVertexNormals();
+
+  // Compute per-kite-face normals (averaged across both triangles) so each
+  // face renders flat. computeVertexNormals() would give per-triangle normals,
+  // creating visible creases because the kite faces are slightly non-planar.
+  const posAttr = geometry.getAttribute('position');
+  const normals = new Float32Array(posAttr.count * 3);
+  const verticesPerFace = 6;
+  for (let face = 0; face < 10; face++) {
+    const start = face * verticesPerFace;
+    const faceNormal = new THREE.Vector3();
+    for (let t = 0; t < verticesPerFace; t += 3) {
+      const v0 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t);
+      const v1 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t + 1);
+      const v2 = new THREE.Vector3().fromBufferAttribute(posAttr, start + t + 2);
+      const e1 = new THREE.Vector3().subVectors(v1, v0);
+      const e2 = new THREE.Vector3().subVectors(v2, v0);
+      faceNormal.add(new THREE.Vector3().crossVectors(e1, e2));
+    }
+    faceNormal.normalize();
+    for (let v = 0; v < verticesPerFace; v++) {
+      normals[(start + v) * 3] = faceNormal.x;
+      normals[(start + v) * 3 + 1] = faceNormal.y;
+      normals[(start + v) * 3 + 2] = faceNormal.z;
+    }
+  }
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+
   return geometry;
 }
 

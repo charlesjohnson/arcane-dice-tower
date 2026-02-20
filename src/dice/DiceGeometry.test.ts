@@ -130,6 +130,22 @@ describe('createDiceGeometry', () => {
     }
   });
 
+  it('d10 both triangles in each kite face share the same vertex normal', () => {
+    const geo = createDiceGeometry('d10');
+    const normalAttr = geo.getAttribute('normal') as THREE.BufferAttribute;
+    const verticesPerFace = 6;
+
+    for (let face = 0; face < 10; face++) {
+      const start = face * verticesPerFace;
+      // All 6 vertices of this kite face should have the same normal
+      const refNormal = new THREE.Vector3().fromBufferAttribute(normalAttr, start);
+      for (let v = 1; v < verticesPerFace; v++) {
+        const n = new THREE.Vector3().fromBufferAttribute(normalAttr, start + v);
+        expect(refNormal.dot(n)).toBeCloseTo(1.0, 4);
+      }
+    }
+  });
+
   it.each(['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as const)(
     '%s has all triangle normals pointing outward',
     (type) => {
