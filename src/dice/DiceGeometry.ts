@@ -126,11 +126,11 @@ function addFaceGroupsAndUVs(
 function createD10Geometry(radius: number): THREE.BufferGeometry {
   // Direct pentagonal trapezohedron construction.
   // 2 poles on the Y axis, 2 rings of 5 equatorial vertices offset by π/5.
-  // Golden ratio constraint: long edge (pole→ring) = φ × short edge (ring→ring).
-  // H = d(2+√5) satisfies this, and d = r/(2+√5) gives ≈1:1 aspect ratio.
+  // Planarity constraint: for kite faces to be truly planar, H/d = 5+2√5.
+  // With H = r this gives ≈1:1 aspect ratio matching real D10 dice.
   const r = 1;
-  const d = r / (2 + Math.sqrt(5));
-  const H = d * (2 + Math.sqrt(5)); // = r
+  const d = r / (5 + 2 * Math.sqrt(5));
+  const H = d * (5 + 2 * Math.sqrt(5)); // = r
 
   const topPole: [number, number, number] = [0, H, 0];
   const bottomPole: [number, number, number] = [0, -H, 0];

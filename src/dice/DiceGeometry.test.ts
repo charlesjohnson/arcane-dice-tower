@@ -146,24 +146,26 @@ describe('createDiceGeometry', () => {
     }
   });
 
-  it('d10 kite long edge / short edge ≈ golden ratio', () => {
+  it('d10 kite faces are planar (all 4 vertices coplanar)', () => {
     const geo = createDiceGeometry('d10');
     const pos = geo.getAttribute('position') as THREE.BufferAttribute;
     const verticesPerFace = 6;
-    const PHI = (1 + Math.sqrt(5)) / 2;
 
-    // Extract the 4 unique kite corners from face 0
-    const start = 0;
-    const pole = new THREE.Vector3().fromBufferAttribute(pos, start);
-    const wing1 = new THREE.Vector3().fromBufferAttribute(pos, start + 1);
-    const mid = new THREE.Vector3().fromBufferAttribute(pos, start + 2);
-    const wing2 = new THREE.Vector3().fromBufferAttribute(pos, start + 5);
+    for (let face = 0; face < 10; face++) {
+      const start = face * verticesPerFace;
+      const pole = new THREE.Vector3().fromBufferAttribute(pos, start);
+      const wing1 = new THREE.Vector3().fromBufferAttribute(pos, start + 1);
+      const mid = new THREE.Vector3().fromBufferAttribute(pos, start + 2);
+      const wing2 = new THREE.Vector3().fromBufferAttribute(pos, start + 5);
 
-    // Long edges: pole to wings. Short edges: mid to wings.
-    const longEdge = pole.distanceTo(wing1);
-    const shortEdge = mid.distanceTo(wing1);
+      // Scalar triple product = 0 means coplanar
+      const e1 = new THREE.Vector3().subVectors(wing1, pole);
+      const e2 = new THREE.Vector3().subVectors(mid, pole);
+      const e3 = new THREE.Vector3().subVectors(wing2, pole);
+      const tripleProduct = e1.dot(new THREE.Vector3().crossVectors(e2, e3));
 
-    expect(longEdge / shortEdge).toBeCloseTo(PHI, 2);
+      expect(Math.abs(tripleProduct)).toBeLessThan(1e-8);
+    }
   });
 
   it.each(['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as const)(
