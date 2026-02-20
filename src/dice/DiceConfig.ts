@@ -81,7 +81,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     label: 'D10',
     mass: 4,
     radius: 0.55,
-    faceValues: [3, 7, 1, 9, 5, 6, 2, 8, 0, 4],
+    faceValues: [7, 4, 1, 6, 9, 2, 5, 8, 3, 0],
     fontScale: 0.25,
   },
   d12: {
@@ -105,7 +105,7 @@ export const DICE_CONFIGS: Record<DiceType, DiceConfigEntry> = {
     label: 'D100',
     mass: 4,
     radius: 0.55,
-    faceValues: [30, 70, 10, 90, 50, 60, 20, 80, 0, 40],
+    faceValues: [70, 40, 10, 60, 90, 20, 50, 80, 30, 0],
     fontScale: 0.17,
     isPercentile: true,
   },

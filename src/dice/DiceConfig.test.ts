@@ -51,10 +51,13 @@ describe('DiceConfig', () => {
     expect([...values].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     // Opposite faces (i and i+5) must sum to 9
     for (let i = 0; i < 5; i++) {
-      expect(values[i] + values[i + 5]).toBe(9);
+      expect(values[i] + values[(i + 5) % 10]).toBe(9);
     }
-    // Standard arrangement: 3, 7, 1, 9, 5, 6, 2, 8, 0, 4
-    expect(values).toEqual([3, 7, 1, 9, 5, 6, 2, 8, 0, 4]);
+    // Odd values on even indices (top pole), even values on odd indices (bottom pole)
+    for (let i = 0; i < 10; i++) {
+      if (i % 2 === 0) expect(values[i] % 2).toBe(1);
+      else expect(values[i] % 2).toBe(0);
+    }
   });
 
   it('d100 faceValues match d10 arrangement scaled by 10', () => {
