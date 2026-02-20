@@ -31,7 +31,7 @@ type SubtotalListener = (subtotal: number) => void;
 const SETTLE_WAIT_TIME = 1.0; // seconds to wait before checking settlement
 export const MAX_CONCURRENT_DICE = 4;
 export const MAX_TRAY_DICE = 6;
-const MAX_SPREAD_X = 0.7; // wallInner(1.5) - die radius(0.6) - jitter(0.15) - margin(0.05)
+const MAX_SPREAD_X = 0.7; // wallInner(1.5) - die radius(0.6) - jitter(0.1) - margin(0.1)
 
 /** Compute the clamped horizontal offset for the i-th die out of total. */
 export function computeSpawnOffsetX(index: number, total: number): number {
