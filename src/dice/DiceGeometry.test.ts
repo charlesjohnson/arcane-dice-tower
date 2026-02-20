@@ -67,6 +67,64 @@ describe('createDiceGeometry', () => {
     }
   );
 
+  it('d10 has 60 vertices (10 kite faces × 2 triangles × 3 vertices)', () => {
+    const geo = createDiceGeometry('d10');
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    expect(pos.count).toBe(60);
+  });
+
+  it('d10 has 10 congruent kite faces (same edge lengths)', () => {
+    const geo = createDiceGeometry('d10');
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const verticesPerFace = 6; // 2 triangles × 3 vertices
+
+    function getEdgeLengths(face: number): number[] {
+      const start = face * verticesPerFace;
+      // Two triangles per kite: (pole, wing1, mid) and (pole, mid, wing2)
+      const pole = new THREE.Vector3().fromBufferAttribute(pos, start);
+      const wing1 = new THREE.Vector3().fromBufferAttribute(pos, start + 1);
+      const mid = new THREE.Vector3().fromBufferAttribute(pos, start + 2);
+      const wing2 = new THREE.Vector3().fromBufferAttribute(pos, start + 5);
+      // Kite edges: pole→wing1, wing1→mid, mid→wing2, wing2→pole
+      return [
+        pole.distanceTo(wing1),
+        wing1.distanceTo(mid),
+        mid.distanceTo(wing2),
+        wing2.distanceTo(pole),
+      ].sort((a, b) => a - b);
+    }
+
+    const refEdges = getEdgeLengths(0);
+    for (let face = 1; face < 10; face++) {
+      const edges = getEdgeLengths(face);
+      for (let e = 0; e < 4; e++) {
+        expect(edges[e]).toBeCloseTo(refEdges[e], 5);
+      }
+    }
+  });
+
+  it('d10 opposite faces (i and i+5) have antiparallel normals', () => {
+    const geo = createDiceGeometry('d10');
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const verticesPerFace = 6;
+
+    function faceNormal(face: number): THREE.Vector3 {
+      const start = face * verticesPerFace;
+      const v0 = new THREE.Vector3().fromBufferAttribute(pos, start);
+      const v1 = new THREE.Vector3().fromBufferAttribute(pos, start + 1);
+      const v2 = new THREE.Vector3().fromBufferAttribute(pos, start + 2);
+      const e1 = new THREE.Vector3().subVectors(v1, v0);
+      const e2 = new THREE.Vector3().subVectors(v2, v0);
+      return new THREE.Vector3().crossVectors(e1, e2).normalize();
+    }
+
+    for (let i = 0; i < 5; i++) {
+      const n1 = faceNormal(i);
+      const n2 = faceNormal(i + 5);
+      expect(n1.dot(n2)).toBeCloseTo(-1, 1);
+    }
+  });
+
   it.each(['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as const)(
     '%s has all triangle normals pointing outward',
     (type) => {
