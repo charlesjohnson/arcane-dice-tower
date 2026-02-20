@@ -45,50 +45,60 @@ function testContainment(combo: DiceType[], seed: number): ContainmentResult {
     orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(combo);
 
+    const sideBound = TOWER_RADIUS + COLLISION_WALL_HALF + 0.5;
+    const backBound = -(TOWER_RADIUS + COLLISION_WALL_HALF + 0.5);
+    const frontBound = TOWER_RADIUS + TRAY_DEPTH + 1.0;
+    const floorBound = -1;
+
     let escaped = false;
     let escapeDetail = '';
 
     const maxSteps = 1800;
-    for (let step = 0; step < maxSteps; step++) {
+    for (let step = 0; step < maxSteps && !escaped; step++) {
       physics.step(1 / 60);
       orchestrator.update(1 / 60);
 
-      for (const body of physics.world.bodies.filter(b => b.mass > 0)) {
-        const x = body.position.x;
-        const y = body.position.y;
-        const z = body.position.z;
+      for (const body of physics.world.bodies) {
+        if (body.mass === 0) continue;
+        const { x, y, z } = body.position;
 
-        if (Math.abs(x) > 3.0) {
+        if (Math.abs(x) > sideBound) {
           escaped = true;
           escapeDetail = `Side escape at step ${step}: x=${x.toFixed(2)}, y=${y.toFixed(2)}, z=${z.toFixed(2)}`;
+          break;
         }
-        if (y < -1) {
+        if (y < floorBound) {
           escaped = true;
           escapeDetail = `Floor escape at step ${step}: x=${x.toFixed(2)}, y=${y.toFixed(2)}, z=${z.toFixed(2)}`;
+          break;
         }
-        if (z < -3.0) {
+        if (z < backBound) {
           escaped = true;
           escapeDetail = `Back escape at step ${step}: x=${x.toFixed(2)}, y=${y.toFixed(2)}, z=${z.toFixed(2)}`;
+          break;
         }
-        if (z > 5.5) {
+        if (z > frontBound) {
           escaped = true;
           escapeDetail = `Front escape at step ${step}: x=${x.toFixed(2)}, y=${y.toFixed(2)}, z=${z.toFixed(2)}`;
+          break;
         }
       }
 
       if (orchestrator.getState() === 'settled') break;
     }
 
-    let allInTray = true;
-    let trayDetail = '';
-    for (const body of physics.world.bodies.filter(b => b.mass > 0)) {
-      const z = body.position.z;
-      const y = body.position.y;
-      if (!(z > 1.5 && y < 1.5 && y > -0.5)) {
-        allInTray = false;
-        trayDetail = `Body not in tray: x=${body.position.x.toFixed(2)}, y=${y.toFixed(2)}, z=${z.toFixed(2)}`;
-      }
-    }
+    const dynamicBodies = physics.world.bodies.filter(b => b.mass > 0);
+    const notInTray = dynamicBodies.filter(b => {
+      const inTray = b.position.z > TOWER_RADIUS - 0.5 && b.position.y < 1.5 && b.position.y > -0.5;
+      return !inTray;
+    });
+    const allInTray = notInTray.length === 0;
+    const trayDetail = notInTray.length > 0
+      ? `${notInTray.length} dice not in tray: ` +
+        notInTray.map(b =>
+          `(${b.position.x.toFixed(2)}, ${b.position.y.toFixed(2)}, ${b.position.z.toFixed(2)})`
+        ).join(', ')
+      : '';
 
     return {
       escaped,
