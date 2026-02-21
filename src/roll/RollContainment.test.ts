@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { buildTower } from '../tower/TowerBuilder';
-import { RollOrchestrator } from './RollOrchestrator';
+import { RollOrchestrator, MAX_CONCURRENT_DICE } from './RollOrchestrator';
 import type { DiceType } from '../dice/DiceConfig';
 
 vi.mock('../dice/DiceMaterial', () => ({
@@ -27,9 +27,10 @@ function mulberry32(seed: number): () => number {
 interface ContainmentResult {
   escaped: boolean;
   escapeDetail: string;
-  allInTray: boolean;
+  allRemainingInTray: boolean;
   trayDetail: string;
   settled: boolean;
+  batchClears: number;
 }
 
 function testContainment(combo: DiceType[], seed: number): ContainmentResult {
@@ -42,6 +43,8 @@ function testContainment(combo: DiceType[], seed: number): ContainmentResult {
     const tower = buildTower(scene, physics);
     const orchestrator = new RollOrchestrator(scene, physics, tower);
 
+    let batchClears = 0;
+    orchestrator.onSubtotalUpdate(() => { batchClears++; });
     orchestrator.onBatchReady(() => orchestrator.spawnNextBatch());
     orchestrator.roll(combo);
 
@@ -53,7 +56,10 @@ function testContainment(combo: DiceType[], seed: number): ContainmentResult {
     let escaped = false;
     let escapeDetail = '';
 
-    const maxSteps = 1800;
+    // Scale simulation time with expected batch count (d100 expands to 2 physical dice)
+    const physicalCount = combo.reduce((n, t) => n + (t === 'd100' ? 2 : 1), 0);
+    const expectedBatches = Math.ceil(physicalCount / MAX_CONCURRENT_DICE);
+    const maxSteps = 1800 * expectedBatches;
     for (let step = 0; step < maxSteps && !escaped; step++) {
       physics.step(1 / 60);
       orchestrator.update(1 / 60);
@@ -87,12 +93,14 @@ function testContainment(combo: DiceType[], seed: number): ContainmentResult {
       if (orchestrator.getState() === 'settled') break;
     }
 
+    // Only the final batch's dice remain in the physics world (earlier batches are cleared)
     const dynamicBodies = physics.world.bodies.filter(b => b.mass > 0);
     const notInTray = dynamicBodies.filter(b => {
-      const inTray = b.position.z > TOWER_RADIUS - 0.5 && b.position.y < 1.5 && b.position.y > -0.5;
+      // z > TOWER_RADIUS - 1.0: includes dice resting on the ramp at the tower-tray transition
+      const inTray = b.position.z > TOWER_RADIUS - 1.0 && b.position.y < 1.5 && b.position.y > -0.5;
       return !inTray;
     });
-    const allInTray = notInTray.length === 0;
+    const allRemainingInTray = notInTray.length === 0;
     const trayDetail = notInTray.length > 0
       ? `${notInTray.length} dice not in tray: ` +
         notInTray.map(b =>
@@ -103,9 +111,10 @@ function testContainment(combo: DiceType[], seed: number): ContainmentResult {
     return {
       escaped,
       escapeDetail,
-      allInTray,
+      allRemainingInTray,
       trayDetail,
       settled: orchestrator.getState() === 'settled',
+      batchClears,
     };
   } finally {
     Math.random = origRandom;
@@ -129,10 +138,44 @@ for (const base of ALL_TYPES) {
         expect(result.escaped, result.escapeDetail).toBe(false);
       });
 
-      it('all dice finish in the tray', () => {
+      it('remaining dice finish in the tray', () => {
         expect(result.settled, 'orchestrator did not reach settled state').toBe(true);
-        expect(result.allInTray, result.trayDetail).toBe(true);
+        expect(result.allRemainingInTray, result.trayDetail).toBe(true);
       });
     });
   }
+}
+
+// Multi-batch tests: verify batch clearing behavior with >4 dice
+// d100 expands to 2 physical dice each, so use 4 to get 8 physical dice (2 batches)
+const MULTI_BATCH_COMBOS: { label: string; dice: DiceType[]; seed: number }[] = ALL_TYPES.map((type, i) => {
+  const count = type === 'd100' ? 4 : 8;
+  return {
+    label: `${count}×${type}`,
+    dice: Array(count).fill(type) as DiceType[],
+    seed: i * 13 + 99,
+  };
+});
+
+for (const { label, dice, seed } of MULTI_BATCH_COMBOS) {
+  describe(`Multi-batch containment: ${label}`, { timeout: 60_000 }, () => {
+    let result: ContainmentResult;
+
+    beforeAll(() => {
+      result = testContainment(dice, seed);
+    });
+
+    it('all dice stay inside the tower walls', () => {
+      expect(result.escaped, result.escapeDetail).toBe(false);
+    });
+
+    it('settled batches are cleared from the tray', () => {
+      expect(result.batchClears).toBeGreaterThan(0);
+    });
+
+    it('final batch dice finish in the tray', () => {
+      expect(result.settled, 'orchestrator did not reach settled state').toBe(true);
+      expect(result.allRemainingInTray, result.trayDetail).toBe(true);
+    });
+  });
 }
